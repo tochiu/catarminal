@@ -1,63 +1,68 @@
 enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
 enum PortResource { Specific(Resource), Mystery }
-enum NodeBuilding { House, City}
-enum DevelopmentName { Knight, Victory Point, Road Building, Year of Plenty, Monopoly}
+enum DevelopmentCard { Knight, Victory, Road, YearOfPlenty, Monopoly }
+
+type LandRef = Box<Land>;
 
 // represents a tile on the Catan Board
 struct Land {
     roll: u8, // unsigned 8-bit num; the number associated with a tile to gain resource
     resource: Option<Resource>, // resource gained from tile
-    adjacents: [Option<Box<Land>>; 6], // list of 6 adjacent tiles
-    robber: bool // is the robber on this tile?
+    adjacents: [Option<LandRef>; 6], // list of 6 adjacent tiles
+    is_robbed: bool // is the robber on this tile?
 }
 
+
+
 impl Land {
-    pub fn new() -> Land {
+    pub fn new() -> Self {
         Land {
             roll: 0,
             resource: None,
-            adjacents: [None, None, None, None, None, None]
+            adjacents: [None, None, None, None, None, None],
+            is_robbed: false
         }
+    }
+
+    pub fn set_adjacent_land(&mut self, index: usize, land: Option<LandRef>) {
+
     }
 }
 
-// a point at the corner of tile(s) where a house can potentially be placed
-struct Node {
-    port: Option<PortResource>, // What type of port is here if any
-    status: Option<NodeBuilding>, // What type of building is here if any
-    player: Player, // Player who owns building here if any
-    adjacency: [None, None, None] // list of adjacent nodes
+struct Building {
+    is_city: bool,
+    owner: Box<Player> 
 }
+
+// a point at the corner of tile(s) where a house can potentially be placed
+struct LandVertex {
+    port: Option<PortResource>, // What type of port is here if any
+    building: Option<Building>, // What type of building is here if any
+    adjacents: [Option<Box<LandEdge>>; 3] // list of adjacent nodes
+}
+
+struct LandEdge { }
 
 // represents a user playing the game
 struct Player {
     id: u8, // unique id given to each player
     name: String, // screen name of each player
-    public_score: u8, // victory points visible to other players
-    private_score: u8, // victory points only visible to this player
-    houses_left: u8, // number of potential houses player can build
-    cities_left: u8, // number of potential cities a player can build
-    roads_left: u8, // number of potential roads a player can build
-    devel_cards: Vec new(), // list of development cards a player currently has
-    brick_count: u8, // how much brick player curently has
-    ore_count: u8, // how much ore player curently has
-    wheat_count: u8, // how much wheat player curently has
-    sheep_count: u8, // how much sheep player curently has
-    lumber_count: u8, // how much lumber player curently has
+    score: u8,
+    buildings: Vec<Box<Building>>,
+    development_cards_used: [u8; 5],
+    development_cards_remaining: [u8; 5],
+    placements_remaining: [u8; 3],
+    resources: [u8; 5],
 }
 
 // represents the bank who distributes resources
 struct Bank {
-    brick_available: u8, // how much brick is left in the bank
-    ore_available: u8, // how much ore is left in the bank
-    wheat_available: u8, // how much wheat is left in the bank
-    sheep_available: u8, // how much sheep is left in the bank
-    lumber_available: u8, // how much lumber is left in the bank
-    devel_cards: Vec new() // list of undrawn development cards
+    resources: [u8; 5],
+    development_cards: [u8; 5]
 }
 
 
-fn expand_lands_frontier(mut lands: Vec<Land>, mut frontier: Vec<Land>) {
+fn expand_lands_frontier(mut lands: Vec<LandRef>, mut frontier: Vec<LandRef>) {
     let mut new_frontier: Vec<Land> = Vec::with_capacity(frontier.len() + 6 - frontier.len() % 6);
 
     for frontier_land in frontier.iter() {
@@ -66,8 +71,8 @@ fn expand_lands_frontier(mut lands: Vec<Land>, mut frontier: Vec<Land>) {
                 continue;
             }
 
-            let new_land = Box::new(Land::new());
-            //new_land*
+            let mut new_land = Land::new();
+            //new_land.adjacents[i + 3 % 6] = adjacent_land;
         }
     }
 }
