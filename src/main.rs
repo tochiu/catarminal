@@ -67,7 +67,28 @@ fn render(map: &String) {
     let mut chars = map.chars();
     let  peekable_chars = chars.peekable();
     for character in peekable_chars {
+        match character {
+            // Color the Sheep!
+            'S' => {let replacement_string = format!("{}",fill_symbol).truecolor(140, 181, 14); print!("{}", replacement_string)},
+            // Color the Trees!
+            'H' => {let replacement_string = format!("{}",fill_symbol).truecolor(24, 152, 55); print!("{}", replacement_string);},
+            // Color the Wheat!
+            'A' => {let replacement_string = format!("{}",fill_symbol).truecolor(240, 185, 32); print!("{}", replacement_string);},
+            // Color the Brick!
+            'C' => {let replacement_string = format!("{}",fill_symbol).truecolor(223, 97, 40); print!("{}", replacement_string);},
+            // Color the Ore!
+            'O' => {let replacement_string = format!("{}",fill_symbol).truecolor(159, 165, 161); print!("{}", replacement_string);},
+            // Color the Ocean!
+            '~' => {let replacement_string = "~".truecolor(80,174,206); print!("{}", replacement_string);},
+            // Colors the 8s and 6s Red!
+            '6' | '8' => {let replacement_string = format!("{}",character).truecolor(255,0,0); print!("{}", replacement_string);},
+            // Does something..IDK...dont see this symbol on map
+            '!' => {let replacement_string = format!("{}",'0').truecolor(255,0,0); print!("{}",replacement_string);},
+            // Dont care about the rest, thy stay the same
+            _ => {let new_character = format!("{}",character).truecolor(200,200,200); print!("{}",new_character);}
 
+        }
+/* CODE REPLACED BY ABOVE MATCH STATEMENT
         //TODO: Replace these with a match statement
 
         if character == 'S' { //Color the Sheep!
@@ -117,6 +138,7 @@ fn render(map: &String) {
         }
     }
 }
+*/
 //////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
