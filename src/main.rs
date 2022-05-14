@@ -14,11 +14,11 @@ use std::io::prelude::*;    // Standard I/O
 fn color_tile(offset: [i32; 2], map: &mut String) {
     let possible_resources = vec![
         // Resource Symbols    RGB Values
-        'S', // Sheep ------> 
-        'T', // Tree  ------>
-        'W', // Wheat ------>
-        'B', // Brick ------>
-        'O', // Ore   ------>
+        'S', // Sheep ------> (140, 181, 14)
+        'T', // Tree  ------> (24, 152, 55)
+        'W', // Wheat ------> (240, 185, 32)
+        'B', // Brick ------> (223, 97, 40)
+        'O', // Ore   ------> (159, 165, 161)
     ];
     let mut rng = rand::thread_rng();
     // NOTE: X-Y Coordinate for the tiles in the "map" string are defined by placing the
@@ -45,11 +45,12 @@ fn color_tile(offset: [i32; 2], map: &mut String) {
 fn render(map: &String) {
     let fill_symbol = '⋰'; //This controls what character fills the tiles
     for character in map.chars() {
+
+        //TODO: Replace these with a match statement
+
         if character == 'S' { //Color the Sheep!
             let replacement_string = format!("{}",fill_symbol).truecolor(140, 181, 14);
             print!("{}", replacement_string);}
-
-            //TODO: Replace these with a match statement
 
         if character == 'T' { //Color the Trees!
             let replacement_string = format!("{}",fill_symbol).truecolor(24, 152, 55);
@@ -66,9 +67,15 @@ fn render(map: &String) {
         if character == 'O' { //Color the Ore!
             let replacement_string = format!("{}",fill_symbol).truecolor(159, 165, 161);
             print!("{}", replacement_string);}
-            
-        if character != 'O' && character != 'B' && character != 'W' && character != 'T' && character != 'S' {
-            print!("{}", character);
+        
+        if character == '~' { //Color the ocean!
+            let replacement_string = "~".truecolor(80,174,206);
+            print!("{}", replacement_string);}   
+
+            // Who cares about the rest, they stay the same...
+        if character != 'O' && character != 'B' && character != 'W' && character != 'T' && character != 'S' && character != '~' {
+           let new_character = format!("{}",character).truecolor(200,200,200);
+           print!("{}",new_character);
         }
     }
 }
