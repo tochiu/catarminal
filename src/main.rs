@@ -5,24 +5,26 @@ use std::fs::File;          // Files
 use std::io::prelude::*;    // Standard I/O
 
 
-///////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
 // COLOR_TILE
-// -Given a tile's [Line, Column] coordinates, draws its corresponding
-//  resource symbols onto the map to later be colored in.
-//  Last Modified:5/14/2022 
-///////////////////////////////////////////////////////////////////////
+// -Given a tile's [Line, Column] coordinates and the map string, draws 
+//  its corresponding resource symbols onto the map to later be colored in.
+//  Last Modified: 5/14/2022 
+//----------------------------------------------------------------------------------
+// NOTE: X-Y Coordinate for the tiles in the "map" string are defined by placing the
+//       cursor to the left of the corresponding resource bracket "[".
+////////////////////////////////////////////////////////////////////////////////////
 fn color_tile(offset: [i32; 2], map: &mut String) {
     let possible_resources = vec![
         // Resource Symbols    RGB Values
         'S', // Sheep ------> (140, 181, 14)
-        'T', // Tree  ------> (24, 152, 55)
-        'W', // Wheat ------> (240, 185, 32)
-        'B', // Brick ------> (223, 97, 40)
+        'H', // Tree  ------> (24, 152, 55)
+        'A', // Wheat ------> (240, 185, 32)
+        'C', // Brick ------> (223, 97, 40)
         'O', // Ore   ------> (159, 165, 161)
     ];
+    //Generating random seed
     let mut rng = rand::thread_rng();
-    // NOTE: X-Y Coordinate for the tiles in the "map" string are defined by placing the
-    //       cursor to the left of the corresponding resource bracket "[".
 
     // Randomly choosing a resource
     let resource_symbol = possible_resources.choose(&mut rng).unwrap();
@@ -35,6 +37,24 @@ fn color_tile(offset: [i32; 2], map: &mut String) {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+/// ENUMERATE_TILE
+/// -Given a tile's [Line,Column] coordinates and  a map string, draws in a randomly 
+/// generated number on the center of the tile.
+/// Last Modified: 5/14/2022
+///////////////////////////////////////////////////////////////////////////////////////
+fn enumerate_tile(offset: [i32; 2], map: &mut String){
+    let valid_tile_numbers = vec!["02","03","04","05","!6","!8","09","10","11","12"];
+    
+    //Generating random seed
+    let mut rng = rand::thread_rng(); 
+    //Randomly choosing a tile number
+    let tile_number = valid_tile_numbers.choose(&mut rng).unwrap();
+    let idx = ((offset[0]-1)*70 + offset[1]+3) as usize ;
+    map.replace_range(idx..(idx+2),&tile_number);
+}
+
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 /// RENDER
@@ -44,7 +64,9 @@ fn color_tile(offset: [i32; 2], map: &mut String) {
 //////////////////////////////////////////////////////////////////////////////////////
 fn render(map: &String) {
     let fill_symbol = '⋰'; //This controls what character fills the tiles
-    for character in map.chars() {
+    let mut chars = map.chars();
+    let  peekable_chars = chars.peekable();
+    for character in peekable_chars {
 
         //TODO: Replace these with a match statement
 
@@ -52,15 +74,15 @@ fn render(map: &String) {
             let replacement_string = format!("{}",fill_symbol).truecolor(140, 181, 14);
             print!("{}", replacement_string);}
 
-        if character == 'T' { //Color the Trees!
+        if character == 'H' { //Color the Trees!
             let replacement_string = format!("{}",fill_symbol).truecolor(24, 152, 55);
             print!("{}", replacement_string);}
 
-        if character == 'W' { //Color the Wheat!
+        if character == 'A' { //Color the Wheat!
             let replacement_string = format!("{}",fill_symbol).truecolor(240, 185, 32);
             print!("{}", replacement_string);}
 
-        if character == 'B' { //Color the Bricks!
+        if character == 'C' { //Color the Bricks!
             let replacement_string = format!("{}",fill_symbol).truecolor(223, 97, 40);
             print!("{}", replacement_string);}
 
@@ -72,8 +94,24 @@ fn render(map: &String) {
             let replacement_string = "~".truecolor(80,174,206);
             print!("{}", replacement_string);}   
 
+
+        if character == '6' || character == '8' {
+            let replacement_string = format!("{}",character).truecolor(255,0,0);
+            print!("{}", replacement_string);
+        
+        }
+
+        if character == '!' {
+            let replacement_string = format!("{}",'0').truecolor(255,0,0);
+            print!("{}",replacement_string);
+        }
+
+
+
             // Who cares about the rest, they stay the same...
-        if character != 'O' && character != 'B' && character != 'W' && character != 'T' && character != 'S' && character != '~' {
+        if character != 'S' && character != 'H' && character != 'A' && character != 'C' && character != 'O' && character != '~'
+        && character != '6' && character != '8' && character != '!'{
+            
            let new_character = format!("{}",character).truecolor(200,200,200);
            print!("{}",new_character);
         }
@@ -102,6 +140,7 @@ fn main() {
     //Calls color_tile for all 19 tiles on the map.
     for i in 0..19 {
         color_tile(tile_coords[i], &mut map);
+        enumerate_tile(tile_coords[i], &mut map);
     }
     //Rendering the final map onto the terminal
     render(&map);
