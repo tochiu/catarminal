@@ -64,7 +64,8 @@ fn enumerate_tile(offset: [i32; 2], map: &mut String){
 //////////////////////////////////////////////////////////////////////////////////////
 fn render(map: &String) {
     let fill_symbol = '⋰'; //This controls what character fills the tiles
-    let mut chars = map.chars();
+    // compiler said to make this not mutable, not sure if you have future plans for this
+    let chars = map.chars();
     let  peekable_chars = chars.peekable();
     for character in peekable_chars {
         match character {
@@ -88,6 +89,10 @@ fn render(map: &String) {
             _ => {let new_character = format!("{}",character).truecolor(200,200,200); print!("{}",new_character);}
 
         }
+    }
+}
+
+
 /* CODE REPLACED BY ABOVE MATCH STATEMENT
         //TODO: Replace these with a match statement
 
