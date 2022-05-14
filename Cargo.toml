@@ -1,5 +1,5 @@
 [package]
-name = "rustyfolder"
+name = "catan-terminal-render"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 colored = "2"
+termcolor = "1.1"
+substring = "1.4.5"
