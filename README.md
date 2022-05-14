@@ -1,2 +1,2 @@
 # catan
-Settles of Catan but its in rust
+Settlers of Catan but its in rust
