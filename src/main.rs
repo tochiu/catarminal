@@ -1,4 +1,4 @@
-enum Resource { Lumber, Ore, Wheat, Sheep, Wood }
+enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
 enum PortResource {
     Specific(Resource),
     Mystery
