@@ -1,6 +1,6 @@
 // render.rs
 // transform catan data to render data :)
-
+use substring::Substring;
 use rand::Rng;
 use std::io::Write;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
@@ -34,7 +34,8 @@ static NUMS : [PixelData; 10] = [
     (0b0111010001011110000101110, 5, 5)
 ];
 
-static RENDER_CANVAS_WIDTH : i32 = 127;
+// TODO: create canvas object
+static mut canvas_width : i32 = 127;
 
 // robber data
 static ROBBER : PixelData = (0b011101111101110111111111111111, 5, 6);
@@ -61,7 +62,9 @@ static RESOURCE_COLORS: [Color; 5] = [
 // transforms a 2D coordinate into an offset in the buffer
 // given a starting offset (position in string buffer) and a coordinate -> returns the correct offset
 fn get_render_offset(offset: usize, coords: [i32; 2]) -> usize {
-    (offset as i32 + (RENDER_CANVAS_WIDTH + 2)*coords[1] + coords[0]) as usize
+    unsafe {
+        (offset as i32 + (canvas_width + 1)*coords[1] + coords[0]) as usize
+    }
 }
 
 // converts pixel information into a RawRender (given an offset, a fill character and a color)
@@ -140,7 +143,7 @@ impl LandRender {
         for i in (-LAND_INTERNAL_HEIGHT/2 as i32)..(LAND_INTERNAL_HEIGHT/2 + 1 as i32) {
             let offset = get_render_offset(self.offset, [i.abs(), i]);
             let amount = (LAND_INTERNAL_WIDTH - 2*i.abs()) as usize;
-            render_data.push((offset, self.color, "#".repeat(amount)));
+            render_data.push((offset, self.color, "█".repeat(amount)));
         }
 
         render_data
@@ -156,7 +159,7 @@ impl LandRender {
             let mut render_data = get_pixel_render_data(
                 NUMS[(self.roll / 10 % 10) as usize], 
                 get_render_offset(self.offset, ROLL_LEFT_DIGIT_OFFSET),
-                '@',
+                '█',
                 Color::White, 
             );
 
@@ -165,7 +168,7 @@ impl LandRender {
                 &mut get_pixel_render_data(
                     NUMS[self.roll as usize % 10], 
                     get_render_offset(self.offset, ROLL_RIGHT_DIGIT_OFFSET),
-                    '@',
+                    '█',
                     Color::White, 
                 )
             );
@@ -177,7 +180,7 @@ impl LandRender {
             get_pixel_render_data(
                 NUMS[self.roll as usize], 
                 get_render_offset(self.offset, ROLL_CENTER_DIGIT_OFFSET),
-                '@',
+                '█',
                 if self.roll == 8 || self.roll == 6 { Color::Rgb(255,000,000) } else { Color::White }, 
             )
         }
@@ -195,8 +198,8 @@ impl LandRender {
         for i in 0..count {
             render_data.push((
                 get_render_offset(self.offset, [ROLL_RARITY_OFFSET[0] - count + 2*i + 1, ROLL_RARITY_OFFSET[1]]),
-                Color::Blue,
-                String::from("*")
+                if self.roll == 8 || self.roll == 6 { Color::Rgb(255,000,000) } else { Color::White },
+                String::from("█")
             ));
         }
 
@@ -208,7 +211,7 @@ impl LandRender {
         get_pixel_render_data(
             ROBBER, 
             get_render_offset(self.offset, ROBBER_OFFSET),
-            '@',
+            '█',
             Color::Magenta, 
         )
     }
@@ -223,11 +226,11 @@ fn merge_layer_down(layer_down: &mut RawRender, layer_up: RawRender) {
     for data in layer_up {
 
         let lbound = data.0;
-        let rbound = data.0 + data.2.len();
+        let rbound = data.0 + data.2.chars().count();
 
         // keep going through the below layer until we encounter a chunk that ends past the start of the above chunk
         // (it is either way past us or partially within us) -> we need to insert our above chunk here
-        while i < layer_down.len() && layer_down[i].0 + layer_down[i].2.len() < lbound {
+        while i < layer_down.len() && layer_down[i].0 + layer_down[i].2.chars().count() < lbound {
             i += 1;
         }
 
@@ -243,19 +246,25 @@ fn merge_layer_down(layer_down: &mut RawRender, layer_up: RawRender) {
         // if the chunk at i starts before we start then we need to include that part in the splice insert 
         // from when the below chunk starts up to when the above chunk starts
         if i < layer_down.len() && layer_down[i].0 < lbound {
-            isplice.push((layer_down[i].0, layer_down[i].1, String::from(&layer_down[i].2[..(lbound - layer_down[i].0)])));
+            isplice.push((layer_down[i].0, layer_down[i].1, String::from(layer_down[i].2.substring(0, (lbound - layer_down[i].0)))));
         }
 
         isplice.push(data);
 
         // if the chunk at j - 1 starts before we end and ends after we end then we need to include that part in the splice insert
         // from when the above chunk ends up to when the below chunk ends
-        if j > i && j <= layer_down.len() && layer_down[j - 1].0 < rbound && layer_down[j - 1].0 + layer_down[j - 1].2.len() >= rbound {
-            isplice.push((rbound, layer_down[j - 1].1, String::from(&layer_down[j - 1].2[(rbound - layer_down[j - 1].0)..])));
+        if j > i && j <= layer_down.len() && layer_down[j - 1].0 < rbound && layer_down[j - 1].0 + layer_down[j - 1].2.chars().count() >= rbound {
+            isplice.push((rbound, layer_down[j - 1].1, String::from(layer_down[j - 1].2.substring((rbound - layer_down[j - 1].0), layer_down[j - 1].2.chars().count()))));
         }
 
         // do the splice operation
         layer_down.splice(i..j, isplice);
+    }
+}
+
+pub fn set_canvas_width(width: i32) {
+    unsafe {
+        canvas_width = width;
     }
 }
 
@@ -308,7 +317,7 @@ pub fn render(canvas: &mut String, renders: &mut Vec<LandRender>) {
         if offset != unprinted_offset {
             let mut buffer = out_writer.buffer();
             buffer.set_color(ColorSpec::new().set_fg(None));
-            write!(&mut buffer, "{}", &canvas[unprinted_offset..offset]);
+            write!(&mut buffer, "{}", canvas.substring(unprinted_offset, offset));
             buffers.push(buffer);
         }
 
@@ -319,14 +328,14 @@ pub fn render(canvas: &mut String, renders: &mut Vec<LandRender>) {
         buffers.push(buffer);
 
         // update unprinted offset to right after offset of render chunk
-        unprinted_offset = offset + content.len();
+        unprinted_offset = offset + content.chars().count();
     }
 
-    // if unprinted_offset < canvas length then we have to store canvas[unprinted_offset..canvas.len()] (remaining canvas chunk) in a buffer 
-    if unprinted_offset < canvas.len() {
+    // if unprinted_offset < canvas length then we have to store canvas[unprinted_offset..canvas.chars().count()] (remaining canvas chunk) in a buffer 
+    if unprinted_offset < canvas.chars().count() {
         let mut buffer = out_writer.buffer();
         buffer.set_color(ColorSpec::new().set_fg(None));
-        write!(&mut buffer, "{}", &canvas[unprinted_offset..canvas.len()]);
+        write!(&mut buffer, "{}", canvas.substring(unprinted_offset, canvas.chars().count()));
         buffers.push(buffer);
     }
 
