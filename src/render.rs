@@ -195,8 +195,8 @@ impl LandRender {
         for i in 0..count {
             render_data.push((
                 get_render_offset(self.offset, [ROLL_RARITY_OFFSET[0] - count + 2*i + 1, ROLL_RARITY_OFFSET[1]]),
-                Color::Blue,
-                String::from("*")
+                if self.roll == 8 || self.roll == 6 { Color::Rgb(255,000,000) } else { Color::White },
+                String::from("O")
             ));
         }
 
