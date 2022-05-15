@@ -34,20 +34,20 @@ static NUMS : [PixelData; 10] = [
     (0b0111010001011110000101110, 5, 5)
 ];
 
-static RENDER_CANVAS_WIDTH : i32 = 127;
+static mut canvas_width : i32 = 127;
 
 // robber data
 static ROBBER : PixelData = (0b011101111101110111111111111111, 5, 6);
-static ROBBER_OFFSET : [i32; 2] = [7, -8]; // robber offset from tile offset
+static ROBBER_OFFSET : [i32; 2] = [7, -9]; // robber offset from tile offset
 
 // digit offsets from tile offset
-static ROLL_LEFT_DIGIT_OFFSET : [i32; 2] = [9, -2];
-static ROLL_RIGHT_DIGIT_OFFSET : [i32; 2] = [15, -2];
-static ROLL_CENTER_DIGIT_OFFSET : [i32; 2] = [12, -2];
-static ROLL_RARITY_OFFSET : [i32; 2] = [14, 4];
+static ROLL_LEFT_DIGIT_OFFSET : [i32; 2] = [7, -2];
+static ROLL_RIGHT_DIGIT_OFFSET : [i32; 2] = [13, -2];
+static ROLL_CENTER_DIGIT_OFFSET : [i32; 2] = [10, -2];
+static ROLL_RARITY_OFFSET : [i32; 2] = [12, 4];
 
 // dimensions of land hex
-static LAND_INTERNAL_WIDTH : i32 = 29;
+static LAND_INTERNAL_WIDTH : i32 = 25;
 static LAND_INTERNAL_HEIGHT : i32 = 11;
 
 static RESOURCE_COLORS: [Color; 5] = [
@@ -61,7 +61,9 @@ static RESOURCE_COLORS: [Color; 5] = [
 // transforms a 2D coordinate into an offset in the buffer
 // given a starting offset (position in string buffer) and a coordinate -> returns the correct offset
 fn get_render_offset(offset: usize, coords: [i32; 2]) -> usize {
-    (offset as i32 + (RENDER_CANVAS_WIDTH + 2)*coords[1] + coords[0]) as usize
+    unsafe {
+        (offset as i32 + (canvas_width + 1)*coords[1] + coords[0]) as usize
+    }
 }
 
 // converts pixel information into a RawRender (given an offset, a fill character and a color)
@@ -256,6 +258,12 @@ fn merge_layer_down(layer_down: &mut RawRender, layer_up: RawRender) {
 
         // do the splice operation
         layer_down.splice(i..j, isplice);
+    }
+}
+
+pub fn set_canvas_width(width: i32) {
+    unsafe {
+        canvas_width = width;
     }
 }
 
