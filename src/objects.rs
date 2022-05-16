@@ -1,5 +1,6 @@
 use rand::Rng;  // Random Number Generator
 
+#[derive(Copy, Clone)]
 pub enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
 pub enum DevelopmentCard { Knight, Victory, Road, YearOfPlenty, Monopoly }
 
@@ -49,7 +50,7 @@ impl Board {
         for i in 1..9 {
             // picking a random port resource
             let rng_portrsc = rand::thread_rng().gen_range(0..remaining_portrsc.len());
-            let portrsc = &remaining_portrsc[rng_portrsc];
+            let portrsc = remaining_portrsc[rng_portrsc];
             // assigning port location
             let pairs = vertex_pairs.pop().unwrap();
             // creating single port object
@@ -71,7 +72,8 @@ impl Board {
                 34 | 39 => portrsc = port_gen[5].resource,
                 43 | 47 => portrsc = port_gen[6].resource,
                 48 | 52 => portrsc = port_gen[7].resource,
-                50 | 53 => portrsc = port_gen[8].resource
+                50 | 53 => portrsc = port_gen[8].resource,
+                _ => ()
             }
             // creating single vertex object
             let vertex = LandVertex::new(i, portrsc);
@@ -153,7 +155,7 @@ struct Port {
 }
 
 impl Port {
-    pub fn new(idx: u8, rsc: &Option<Resource>, nodes: [u8; 2]) -> Self {
+    pub fn new(idx: u8, rsc: Option<Resource>, nodes: [u8; 2]) -> Self {
         let port = Port {
             id: idx,
             resource: rsc,
