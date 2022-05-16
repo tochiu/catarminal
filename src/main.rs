@@ -1,6 +1,8 @@
+pub mod objects;
+
 //use rand::Rng;
 use colored::Colorize;      // Random
-use rand::seq::SliceRandom; // Colors
+//use rand::seq::SliceRandom; // Colors
 use rand::Rng;              // Random Number Generator
 use std::fs::File;          // Files
 use std::io::prelude::*;    // Standard I/O
