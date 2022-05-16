@@ -8,28 +8,22 @@ type LandRef = Box<Land>;
 // type PortRef = Box<Port>;
 
 struct Board {
-    tiles: Vec<Land>,
-    vertex: Vec<LandVertex>,
-    ports: Vec<Port>
+    tiles: [Land; 19],
+    vertex: [LandVertex; 54],
+    ports: [Port; 9]
 }
 
 impl Board {
     pub fn generate_board() -> Self {
-        let mut tile_gen: Vec<Land> =  Vec::with_capacity(19);
-        let mut vertex_gen: Vec<LandVertex> = Vec::with_capacity(54);
-        let mut port_gen: Vec<Port> = Vec::with_capacity(9);
+        let mut tile_gen: Vec<Land> =  Vec::new();
+        let mut vertex_gen: Vec<LandVertex> = Vec::new();
+        let mut port_gen: Vec<Port> = Vec::new();
 
         // Vector containing all the possible tile numbers
         let mut remaining_num = vec![0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
         // Vector containing all the possible tile resources
-        let mut remaining_resource = vec![None, // desert
-            Some(Resource::Sheep), Some(Resource::Sheep), Some(Resource::Sheep), Some(Resource::Sheep), // 4
-            Some(Resource::Lumber), Some(Resource::Lumber), Some(Resource::Lumber), Some(Resource::Lumber), // 4
-            Some(Resource::Wheat), Some(Resource::Wheat), Some(Resource::Wheat), Some(Resource::Wheat), // 4
-            Some(Resource::Brick), Some(Resource::Brick), Some(Resource::Brick), // 3
-            Some(Resource::Ore), Some(Resource::Ore), Some(Resource::Ore) // 3
-        ];
-        
+        let mut remaining_resource = 
+        vec![None, Some(Resource::Sheep), Some(Resource::Sheep), Some(Resource::Sheep), Some(Resource::Sheep), Some(Resource::Lumber), Some(Resource::Lumber), Some(Resource::Lumber), Some(Resource::Lumber), Some(Resource::Wheat), Some(Resource::Wheat), Some(Resource::Wheat), Some(Resource::Wheat), Some(Resource::Brick), Some(Resource::Brick), Some(Resource::Brick), Some(Resource::Ore), Some(Resource::Ore), Some(Resource::Ore)];
         // Generating all the tiles
         for i in 1..19 {
             // randomizing resource
@@ -48,14 +42,14 @@ impl Board {
         }
 
         // Vector containing all the possible ports
-        let mut remaining_portrsc = vec![Some(Resource::Brick), Some(Resource::Ore), Some(Resource::Wheat), Some(Resource::Sheep), Some(Resource::Lumber), None, None, None, None];
+        let mut remaining_portrsc = vec![None, None, None, None, Some(Resource::Brick), Some(Resource::Ore), Some(Resource::Wheat), Some(Resource::Sheep), Some(Resource::Lumber)];
         // Vector containing all the possible vertex pairs a port can connect to
         let mut vertex_pairs = vec![[1, 2], [4,5], [11, 16], [12, 17], [27, 33], [34, 39], [43, 47], [48, 52], [50, 53]];
         // generating all ports objects
         for i in 1..9 {
             // picking a random port resource
             let rng_portrsc = rand::thread_rng().gen_range(0..remaining_portrsc.len());
-            let portrsc = remaining_portrsc[rng_portrsc];
+            let portrsc = &remaining_portrsc[rng_portrsc];
             // assigning port location
             let pairs = vertex_pairs.pop().unwrap();
             // creating single port object
@@ -67,11 +61,11 @@ impl Board {
 
         // generating all vertex objects
         for i in 1..54 {
-            let portrsc = None;
+            let mut portrsc = None;
             match i {
-                1  |  2 => portrsc = port_gen[0].resource,
-                4  |  5 => portrsc = port_gen[1].resource,
-                11 | 16 => portrsc = port_gen[2].resource,
+                1 | 2 => portrsc = port_gen[0].resource,
+                4 | 5 => portrsc = port_gen[1].resource,
+                11 |16 => portrsc = port_gen[2].resource,
                 12 | 17 => portrsc = port_gen[3].resource,
                 27 | 33 => portrsc = port_gen[4].resource,
                 34 | 39 => portrsc = port_gen[5].resource,
@@ -80,15 +74,29 @@ impl Board {
                 50 | 53 => portrsc = port_gen[8].resource
             }
             // creating single vertex object
-            let vertex = Vertex::new(i, portrsc, pairs); // this class doesn't exist
+            let vertex = LandVertex::new(i, portrsc);
             vertex_gen.push(vertex);
         }
 
+        // coverting from vector to array
+        let t_gen = match <[Land; 19]>::try_from(tile_gen) {
+            Ok(t_gen) => t_gen,
+            _ => panic!("Tile Conversation Failed"),
+        };
+        let v_gen = match <[LandVertex; 54]>::try_from(vertex_gen) {
+            Ok(v_gen) => v_gen,
+            _ => panic!("Vertex Conversion Failed!"),
+        };
+        let p_gen = match <[Port; 9]>::try_from(port_gen) {
+            Ok(p_gen) => p_gen,
+            _ => panic!("Port Conversion Failed!"),
+        };
+
         // putting it all together
         let board = Board {
-            tiles: tile_gen,
-            vertex: vertex_gen,
-            ports: port_gen
+            tiles: t_gen,
+            vertex: v_gen,
+            ports: p_gen
         };
         board
     }
@@ -119,16 +127,16 @@ impl Land {
 // a point at the corner of tile(s) where a house can potentially be placed
 struct LandVertex {
     id: u8,
-    port: Option<Box<Port>>,
+    port: Option<Resource>, // What type of port is here if any
     building: Option<Building>, // What type of building is here if any
     adjacents: [Option<Box<LandEdge>>; 3] // list of adjacent nodes
 }
 
 impl LandVertex {
-    pub fn new(num: u8, port: Option<Box<Port>>, port_resource: Option<Resource>) -> Self {
+    pub fn new(num: u8, port_type: Option<Resource>) -> Self {
         let vertex = LandVertex {
             id: num,
-            port: port,
+            port: port_type,
             building: None,
             adjacents: [None, None, None]
         };
@@ -145,7 +153,7 @@ struct Port {
 }
 
 impl Port {
-    pub fn new(idx: u8, rsc: Option<Resource>, nodes: [u8; 2]) -> Self {
+    pub fn new(idx: u8, rsc: &Option<Resource>, nodes: [u8; 2]) -> Self {
         let port = Port {
             id: idx,
             resource: rsc,
