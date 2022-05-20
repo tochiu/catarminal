@@ -1,12 +1,14 @@
 use rand::Rng;  // Random Number Generator
+use petgraph::Graph; // Graph Structure
 
 #[derive(Copy, Clone)]
 pub enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
 pub enum DevelopmentCard { Knight, Victory, Road, YearOfPlenty, Monopoly }
 
 type LandRef = Box<Land>;
-// type VertexRef = Box<LandVertex>;
-// type PortRef = Box<Port>;
+type LandVertexRef = Box<LandVertex>;
+type PortRef = Box<Port>;
+type EdgeRef = Box<Edge>;
 
 struct Board {
     tiles: [Land; 19],
@@ -80,6 +82,10 @@ impl Board {
             vertex_gen.push(vertex);
         }
 
+        // Generate Graph of Vertexes and Edges
+        let mut graph = Graph::new(LandVertex { id: val, port: val, building: val, adjacents: val }, Edge { id: val, linked_land: val, linked_vertex: val });
+
+
         // coverting from vector to array
         let t_gen = match <[Land; 19]>::try_from(tile_gen) {
             Ok(t_gen) => t_gen,
@@ -131,7 +137,7 @@ struct LandVertex {
     id: u8,
     port: Option<Resource>, // What type of port is here if any
     building: Option<Building>, // What type of building is here if any
-    adjacents: [Option<Box<LandEdge>>; 3] // list of adjacent nodes
+    adjacents: [Option<Box<Edge>>; 3] // list of adjacent nodes
 }
 
 impl LandVertex {
@@ -146,7 +152,22 @@ impl LandVertex {
     }
 }
 
-struct LandEdge { }
+struct Edge { 
+    id: u8,
+    linked_land: [LandRef; 2],
+    linked_vertex: [LandVertexRef; 2]
+}
+
+impl Edge {
+    pub fn new(idx: u8, lands: [LandRef; 2], vertexes: [LandVertexRef; 2]) -> Self {
+        let edge = Edge {
+            id: idx,
+            linked_land: lands,
+            linked_vertex: vertexes,
+        };
+        edge
+    }
+}
 
 struct Port {
     id: u8,
