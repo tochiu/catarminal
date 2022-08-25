@@ -84,7 +84,7 @@ impl UDim2 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct AbsoluteSpace {
     pub size: Size2D,
     pub position: Point2D
