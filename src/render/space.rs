@@ -82,6 +82,10 @@ impl UDim2 {
     pub const fn from_point2d(point: Point2D) -> Self {
         UDim2::new(0.0, point.x, 0.0, point.y)
     }
+
+    pub fn from_size2d(size: Size2D) -> Self {
+        UDim2::new(0.0, i16::try_from(size.x).unwrap(), 0.0, i16::try_from(size.x).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

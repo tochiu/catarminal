@@ -1,6 +1,7 @@
 use super::{
     space::*,
-    draw::*
+    draw::*, 
+    world::*
 };
 
 use tui::buffer::Cell;
@@ -14,6 +15,34 @@ pub struct BitShape128 {
 impl BitShape128 {
     pub const fn new(bits: u128, size: Size2D) -> Self {
         BitShape128 { bits: (bits << (u128::BITS as u16 - size.x*size.y)).reverse_bits(), size }
+    }
+}
+
+#[derive(Debug)]
+pub struct Shape128 {
+    pub shape: &'static BitShape128,
+    pub cell: Cell
+}
+
+impl Shape128 {
+    pub fn new(shape: &'static BitShape128) -> Self {
+        Shape128 { shape, cell: Cell::default() }
+    }
+}
+
+impl Drawable for Shape128 {
+    fn on_mount(shape_drawing: &mut Drawing<Self>, _: &mut MountController) {
+        shape_drawing.set_size(UDim2::from_size2d(shape_drawing.pencil.shape.size));
+    }
+
+    fn draw(&self, canvas: DrawingCanvas) {
+        for point in canvas.draw_space {
+            let bit_point = canvas.full_space.relative_position_of(point);
+            if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
+                let i = canvas.buf.index_of(point.x as u16, point.y as u16);
+                canvas.buf.content[i] = self.cell.clone();
+            }
+        }
     }
 }
 
@@ -63,54 +92,28 @@ impl BitShape {
     }
 }
 
-pub struct Shape<'a> {
-    pub shape: &'a BitShape,
+#[derive(Debug)]
+pub struct Shape {
+    pub shape: &'static BitShape,
     pub cell: Cell
 }
 
-impl<'a> Shape<'a> {
-    pub fn from(shape: &'a BitShape) -> Self {
+impl Shape {
+    pub fn new(shape: &'static BitShape) -> Self {
         Shape { shape, cell: Cell::default() }
     }
 }
 
-impl Drawable for Shape<'_> {
-    fn get_space(&self) -> Space {
-        Space::from_size2d(self.shape.size)
+impl Drawable for Shape {
+    fn on_mount(shape_drawing: &mut Drawing<Self>, _: &mut MountController) {
+        shape_drawing.set_size(UDim2::from_size2d(shape_drawing.pencil.shape.size));
     }
 
-    fn draw(&self, canvas: &mut DrawCanvas) {
+    fn draw(&self, canvas: DrawingCanvas) {
         for point in canvas.draw_space {
             let bit_point = canvas.full_space.relative_position_of(point);
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
             if self.shape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
-                let i = canvas.buf.index_of(point.x as u16, point.y as u16);
-                canvas.buf.content[i] = self.cell.clone();
-            }
-        }
-    }
-}
-
-pub struct Shape128<'a> {
-    pub shape: &'a BitShape128,
-    pub cell: Cell
-}
-
-impl<'a> Shape128<'a> {
-    pub fn from(shape: &'a BitShape128) -> Self {
-        Shape128 { shape, cell: Cell::default() }
-    }
-}
-
-impl Drawable for Shape128<'_> {
-    fn get_space(&self) -> Space {
-        Space::from_size2d(self.shape.size)
-    }
-
-    fn draw(&self, canvas: &mut DrawCanvas) {
-        for point in canvas.draw_space {
-            let bit_point = canvas.full_space.relative_position_of(point);
-            if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
                 let i = canvas.buf.index_of(point.x as u16, point.y as u16);
                 canvas.buf.content[i] = self.cell.clone();
             }

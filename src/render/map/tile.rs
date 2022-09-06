@@ -1,7 +1,8 @@
 use super::super::{
     shape::*,
     draw::*,
-    space::*
+    space::*,
+    world::*
 };
 
 use crate::enums;
@@ -91,70 +92,63 @@ lazy_static! {
     };
 }
 
+#[derive(Debug)]
 pub struct Tile {
-    digit0: Option<Drawing<Shape128<'static>>>,
-    digit1: Option<Drawing<Shape128<'static>>>,
-    bkg: Drawing<Shape<'static>>,
-    rarity: Drawing<Shape128<'static>>
+    roll: u8,
+    resource: enums::Resource
 }
 
 impl Tile {
-    pub fn from(roll: u8, resource: enums::Resource) -> Self {
-        let mut bkg = Drawing::a(Shape::from(&TILE_BITSHAPE));
-        bkg.center();
-        bkg.pencil.cell = TILE_BKG_CELL.clone();
-        bkg.pencil.cell.set_fg(resource.get_color());
-
-        let mut rarity = Drawing::a(Shape128::from(&TILE_ROLL_RARITY_BITSHAPES[roll as usize]));
-        rarity
-            .set_position(UDim2::new(0.5, 0, 1.0, -1))
-            .set_anchor(Scale2D::new(0.5, 0.5));
-        rarity.pencil.cell = ROLL_RARITY_CELL.clone();
-        
-        let mut tile = Tile {
-            bkg,
-            rarity,
-            digit0: None,
-            digit1: None,
-        };
-
-        if roll < 10 {
-            let mut digit0 = Drawing::a(Shape128::from(&DIGITS[roll as usize]));
-            digit0.pencil.cell = if roll.abs_diff(7) == 1 { BEST_ROLL_NUMBER_CELL.clone() } else { DEFAULT_ROLL_NUMBER_CELL.clone() };
-            digit0.center();       
-            
-            tile.digit0 = Some(digit0);
-        } else {
-            let mut digit0 = Drawing::a(Shape128::from(&DIGITS[(roll % 10) as usize]));
-            digit0.pencil.cell = DEFAULT_ROLL_NUMBER_CELL.clone();
-            digit0
-                .set_position(UDim2::new(0.5, 1, 0.5, 0))
-                .set_anchor(Scale2D::new(0.0, 0.5));
-            tile.digit0 = Some(digit0);
-
-            let mut digit1 = Drawing::a(Shape128::from(&DIGITS[(roll / 10) as usize]));
-            digit1.pencil.cell = DEFAULT_ROLL_NUMBER_CELL.clone();
-            digit1
-                .set_position(UDim2::new(0.5, -1, 0.5, 0))
-                .set_anchor(Scale2D::new(1.0, 0.5));
-            tile.digit1 = Some(digit1);
-        }
-        
-        tile
+    pub fn new(roll: u8, resource: enums::Resource) -> Self {
+        Tile { roll, resource }
     }
 }
 
 impl Drawable for Tile {
-    fn get_space(&self) -> Space {
-        Space::from_size2d(TILE_SIZE)
+    fn on_mount(tile_drawing: &mut Drawing<Self>, controller: &mut MountController) {
+        let roll = tile_drawing.pencil.roll;
+        let resource = tile_drawing.pencil.resource;
+
+        tile_drawing.set_size(UDim2::from_size2d(TILE_SIZE));
+
+        {
+            let mut bkg_drawing = controller.mount_child(Shape::new(&TILE_BITSHAPE));
+            bkg_drawing.center();
+            bkg_drawing.pencil.cell = TILE_BKG_CELL.clone();
+            bkg_drawing.pencil.cell.set_fg(resource.get_color());
+        }
+
+        {
+            let mut rarity_drawing = controller.mount_child(Shape128::new(&TILE_ROLL_RARITY_BITSHAPES[roll as usize]));
+            rarity_drawing
+                .set_position(UDim2::new(0.5, 0, 1.0, -1))
+                .set_anchor(Scale2D::new(0.5, 0.5));
+            rarity_drawing.pencil.cell = ROLL_RARITY_CELL.clone();
+        }
+
+        if roll < 10 {
+            let mut digit0_drawing = controller.mount_child(Shape128::new(&DIGITS[roll as usize]));
+            digit0_drawing.pencil.cell = if roll.abs_diff(7) == 1 { BEST_ROLL_NUMBER_CELL.clone() } else { DEFAULT_ROLL_NUMBER_CELL.clone() };
+            digit0_drawing.center();
+        } else {
+            {
+                let mut digit0_drawing = controller.mount_child(Shape128::new(&DIGITS[(roll % 10) as usize]));
+                digit0_drawing.pencil.cell = DEFAULT_ROLL_NUMBER_CELL.clone();
+                digit0_drawing
+                    .set_position(UDim2::new(0.5, 1, 0.5, 0))
+                    .set_anchor(Scale2D::new(0.0, 0.5));
+            }
+            {
+                let mut digit1_drawing = controller.mount_child(Shape128::new(&DIGITS[(roll / 10) as usize]));
+                digit1_drawing.pencil.cell = DEFAULT_ROLL_NUMBER_CELL.clone();
+                digit1_drawing
+                    .set_position(UDim2::new(0.5, -1, 0.5, 0))
+                    .set_anchor(Scale2D::new(1.0, 0.5));
+            }
+        }
     }
 
-    fn draw(&self, canvas: &mut DrawCanvas) {
-        self.bkg.draw_in(canvas);
-        self.digit0.as_ref().unwrap().draw_in(canvas);
-        if self.digit1.is_some() {
-            self.digit1.as_ref().unwrap().draw_in(canvas);
-        }
-        self.rarity.draw_in(canvas);
+    fn draw(&self, mut canvas: DrawingCanvas) {
+        canvas.draw_children();
     }
 }
