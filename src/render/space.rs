@@ -84,7 +84,7 @@ impl UDim2 {
     }
 
     pub fn from_size2d(size: Size2D) -> Self {
-        UDim2::new(0.0, i16::try_from(size.x).unwrap(), 0.0, i16::try_from(size.x).unwrap())
+        UDim2::new(0.0, i16::try_from(size.x).unwrap(), 0.0, i16::try_from(size.y).unwrap())
     }
 }
 

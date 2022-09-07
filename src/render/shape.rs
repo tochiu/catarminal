@@ -25,22 +25,23 @@ pub struct Shape128 {
 }
 
 impl Shape128 {
-    pub fn new(shape: &'static BitShape128) -> Self {
-        Shape128 { shape, cell: Cell::default() }
+    pub fn new(shape: &'static BitShape128, cell: Cell) -> Self {
+        Shape128 { shape, cell }
     }
 }
 
 impl Drawable for Shape128 {
-    fn on_mount(shape_drawing: &mut Drawing<Self>, _: &mut MountController) {
-        shape_drawing.set_size(UDim2::from_size2d(shape_drawing.pencil.shape.size));
+    fn on_mount(mut controller: WorldMountController) {
+        let size = UDim2::from_size2d(controller.get_drawing_mut::<Self>().shape.size);
+        controller.get_layout_mut().set_size(size);
     }
 
-    fn draw(&self, canvas: DrawingCanvas) {
-        for point in canvas.draw_space {
-            let bit_point = canvas.full_space.relative_position_of(point);
+    fn draw(&self, area: WorldArea) {
+        for point in area.draw_space {
+            let bit_point = area.full_space.relative_position_of(point);
             if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
-                let i = canvas.buf.index_of(point.x as u16, point.y as u16);
-                canvas.buf.content[i] = self.cell.clone();
+                let i = area.buf.index_of(point.x as u16, point.y as u16);
+                area.buf.content[i] = self.cell.clone();
             }
         }
     }
@@ -99,23 +100,27 @@ pub struct Shape {
 }
 
 impl Shape {
-    pub fn new(shape: &'static BitShape) -> Self {
-        Shape { shape, cell: Cell::default() }
+    pub fn new(shape: &'static BitShape, cell: Cell) -> Self {
+        Shape { shape, cell }
     }
 }
 
 impl Drawable for Shape {
-    fn on_mount(shape_drawing: &mut Drawing<Self>, _: &mut MountController) {
-        shape_drawing.set_size(UDim2::from_size2d(shape_drawing.pencil.shape.size));
+    fn on_mount(mut controller: WorldMountController) {
+        let size = UDim2::from_size2d(controller.get_drawing_mut::<Self>().shape.size);
+        //println!("{:#?}", size);
+        controller.get_layout_mut().set_size(size);
     }
 
-    fn draw(&self, canvas: DrawingCanvas) {
-        for point in canvas.draw_space {
-            let bit_point = canvas.full_space.relative_position_of(point);
+    fn draw(&self, area: WorldArea) {
+        //println!("{:#?} {:#?}", self, area.draw_space);
+        
+        for point in area.draw_space {
+            let bit_point = area.full_space.relative_position_of(point);
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
             if self.shape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
-                let i = canvas.buf.index_of(point.x as u16, point.y as u16);
-                canvas.buf.content[i] = self.cell.clone();
+                let i = area.buf.index_of(point.x as u16, point.y as u16);
+                area.buf.content[i] = self.cell.clone();
             }
         }
     }

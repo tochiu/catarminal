@@ -1,7 +1,6 @@
 use crate::{
     // enums,
     render::{
-        draw::*,
         space::*,
         shape::{BitShape, Shape},
         map::{Map, Tile}, world::World
@@ -13,8 +12,9 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{io, time::Duration, fs::create_dir};
+use std::{io, time::Duration};
 use tui::{
+    buffer::Cell,
     backend::CrosstermBackend,
     Terminal,
 };
@@ -70,7 +70,10 @@ pub fn run() -> Result<(), io::Error> {
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
 
-    let cursor_dref = world.canvas.mount_root(Map::new(Shape::new(&DND_NOW_BITSHAPE), tiles)).pencil.cursor_dref.unwrap();
+    let mut cursor_cell = Cell::default();
+    cursor_cell.set_fg(tui::style::Color::LightBlue).set_symbol(tui::symbols::block::FULL);
+    let map_ref = world.canvas.mount_root(Map::new(Shape::new(&DND_NOW_BITSHAPE, cursor_cell), tiles));
+    let cursor_ref = world.canvas.get(map_ref).cursor_dref.unwrap();
 
     // setup terminal
     enable_raw_mode()?;
@@ -106,7 +109,7 @@ pub fn run() -> Result<(), io::Error> {
                         MouseEventKind::Moved => {
                             should_render = true;
                             world.canvas
-                                .get_mut(cursor_dref)
+                                .get_layout_mut(cursor_ref.id)
                                 .set_position(UDim2::from_size2d(Size2D::new(event.column, event.row)));
                         },
                         _ => ()

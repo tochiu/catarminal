@@ -1,6 +1,6 @@
 use super::{
     draw::*,
-    space::AbsoluteSpace
+    space::*
 };
 
 use tui::{
@@ -10,35 +10,30 @@ use tui::{
 };
 
 use std::marker::PhantomData;
-use std::cell::{Ref, RefMut, RefCell};
-use std::any::Any;
 
-pub type DrawId = usize;
-pub type DrawingRef<'a, T> = Ref<'a, Drawing<T>>;
-pub type DrawingRefMut<'a, T> = RefMut<'a, Drawing<T>>;
+pub type WorldId = usize;
 
 #[derive(Debug)]
-pub struct DrawRef<T: Drawable> {
-    pub id: DrawId,
+pub struct WorldRef<T: Drawable> {
+    pub id: WorldId,
     pub tp: PhantomData<T>
 }
 
-impl<T: Drawable> Clone for DrawRef<T> {
-    fn clone(&self) -> DrawRef<T> {
-        DrawRef {
+impl<T: Drawable> Clone for WorldRef<T> {
+    fn clone(&self) -> WorldRef<T> {
+        WorldRef {
             id: self.id,
             tp: PhantomData
         }
     }
 }
 
-impl<T: Drawable> Copy for DrawRef<T> {}
+impl<T: Drawable> Copy for WorldRef<T> {}
 
 #[derive(Debug)]
 pub struct World {
     pub canvas: WorldCanvas,
 }
-
 
 impl World {
     pub fn new() -> Self {
@@ -50,9 +45,10 @@ impl World {
 
 #[derive(Debug, Default)]
 pub struct WorldCanvas {
-    roots: Vec<DrawId>,
-    nodes: Vec<RefCell<Option<Drawing<dyn Drawable>>>>,
-    edges: Vec<Vec<DrawId>>
+    roots: Vec<WorldId>,
+    nodes: Vec<Box<dyn Drawable>>,
+    edges: Vec<Vec<WorldId>>,
+    layout: Vec<DrawLayout>
 }
 
 impl WorldCanvas {
@@ -62,41 +58,62 @@ impl WorldCanvas {
         }
     }
 
-    pub fn mount_root<T: Drawable>(&mut self, drawable: T) -> DrawingRefMut<T> {
+    pub fn mount_root<T: Drawable>(&mut self, drawable: T) -> WorldRef<T> {
         self.mount(drawable, None)
     }
 
-    // pub fn get<T: Drawable>(&self, dref: &DrawRef<T>) -> &Drawing<T> {
+    // pub fn get<T: Drawable>(&self, dref: &WorldRef<T>) -> &Drawing<T> {
     //     self.nodes[dref.id].borrow().as_ref().unwrap().as_any().downcast_ref::<Drawing<T>>().unwrap()
     // }
     
-    pub fn get<T: Drawable>(&self, dref: DrawRef<T>) -> DrawingRef<T> {
-        Ref::map(self.nodes[dref.id].borrow(), |x| x.as_ref().unwrap().as_any().downcast_ref::<Drawing<T>>().unwrap())
+    // pub fn get<T: Drawable>(&self, dref: WorldRef<T>) -> DrawingRef<T> {
+    //     Ref::map(self.nodes[dref.id].borrow(), |x| &x.as_ref().unwrap().downcast_ref::<T>())
+    // }
+    
+    //RefMut<DrRefMut<'a, T>>
+    // pub fn get_mut<'a, T: Drawable>(&'a self, dref: WorldRef<T>) -> RefMut<Drawing<dyn Drawable>> {
+    //     let m = RefMut::map(self.nodes[dref.id].borrow_mut(), |x| x.as_mut().unwrap());
+    //     //.downcast_mut::<'a, T>()
+    //     let k = RefMut::map(m, |x| x.downcast_mut::<'a, T>());
+    //     m
+    // }
+    
+    pub fn get<T: Drawable>(&self, world_ref: WorldRef<T>) -> &T {
+        self.get_dyn(world_ref.id).as_any().downcast_ref::<T>().unwrap()
     }
 
-    pub fn get_mut<T: Drawable>(&self, dref: DrawRef<T>) -> DrawingRefMut<T> {
-        RefMut::map(self.nodes[dref.id].borrow_mut(), |x| x.as_mut().unwrap().as_any_mut().downcast_mut::<Drawing<T>>().unwrap())
+    pub fn get_mut<T: Drawable>(&mut self, world_ref: WorldRef<T>) -> &mut T {
+        self.get_dyn_mut(world_ref.id).as_any_mut().downcast_mut::<T>().unwrap()
     }
 
-    pub fn get_dyn(&self, id: DrawId) -> DrawingRef<dyn Drawable> {
-        Ref::map(self.nodes[id].borrow(), |x| x.as_ref().unwrap().as_any().downcast_ref::<Drawing<dyn Drawable>>().unwrap())
+    pub fn get_dyn(&self, id: WorldId) -> &Box<dyn Drawable> {
+        &self.nodes[id]
     }
 
-    pub fn get_dyn_mut(&self, id: DrawId) -> DrawingRefMut<dyn Drawable> {
-        RefMut::map(self.nodes[id].borrow_mut(), |x| x.as_mut().unwrap().as_any_mut().downcast_mut::<Drawing<dyn Drawable>>().unwrap())
+    pub fn get_dyn_mut(&mut self, id: WorldId) -> &mut Box<dyn Drawable> {
+        &mut self.nodes[id]
     }
 
-    pub fn iter_children(&self, id: DrawId) -> impl Iterator<Item=DrawId> + '_ {
+    pub fn get_layout(&self, id: WorldId) -> &DrawLayout {
+        &self.layout[id]
+    }
+
+    pub fn get_layout_mut(&mut self, id: WorldId) -> &mut DrawLayout {
+        &mut self.layout[id]
+    }
+
+    pub fn iter_children(&self, id: WorldId) -> impl Iterator<Item=WorldId> + '_ {
         self.edges[id].iter().cloned()
     }
 
-    fn mount<T: Drawable>(&mut self, drawable: T, parent_id: Option<DrawId>) -> DrawingRefMut<T> {
+    fn mount<T: Drawable>(&mut self, drawing: T, parent_id: Option<WorldId>) -> WorldRef<T> {
         let id = self.nodes.len();
-        let mut drawing = Draw::new(drawable, id);
-        let drawing_dref = drawing.as_dref();
 
-        self.nodes.push(RefCell::new(None));
+        self.nodes.push(Box::new(drawing));
         self.edges.push(Vec::new());
+        self.layout.push(DrawLayout {
+            space: Space::FULL
+        });
 
         if let Some(parent_id) = parent_id {
             self.edges[parent_id].push(id);
@@ -104,23 +121,33 @@ impl WorldCanvas {
             self.roots.push(id);
         }
         
-        T::on_mount(&mut drawing, &mut MountController { drawing_id: id, canvas: self });
-        
-        self.nodes[id].replace(Some(drawing));
+        T::on_mount(WorldMountController { drawing_id: id, canvas: self });
 
-        println!("{:#?} {:#?}", self.nodes[id], drawing_dref);
-
-        self.get_mut(drawing_dref)
+        WorldRef {
+            id,
+            tp: PhantomData
+        }
     }
 }
 
-pub struct MountController<'a> {
-    drawing_id: DrawId,
+pub struct WorldMountController<'a> {
+    drawing_id: WorldId,
     pub canvas: &'a mut WorldCanvas,
 }
 
-impl<'a> MountController<'a> {
-    pub fn mount_child<T: Drawable>(&mut self, drawable: T) -> DrawingRefMut<T> {
+impl<'a> WorldMountController<'a> {
+    pub fn get_drawing_mut<T: Drawable>(&mut self) -> &mut T {
+        self.canvas.get_mut(WorldRef {
+            id: self.drawing_id,
+            tp: PhantomData::<T>
+        })
+    }
+
+    pub fn get_layout_mut(&mut self) -> &mut DrawLayout {
+        self.canvas.get_layout_mut(self.drawing_id)
+    }
+
+    pub fn mount_child<T: Drawable>(&mut self, drawable: T) -> WorldRef<T> {
         self.canvas.mount(drawable, Some(self.drawing_id))
     }
 }
@@ -132,7 +159,7 @@ pub struct WorldWidget<'a> {
 impl<'a> Widget for WorldWidget<'a> {
     fn render(self, rect: Rect, buf: &mut Buffer) {
         let rect_space = AbsoluteSpace::from_rect(rect);
-        let mut canvas = DrawingCanvas {
+        let mut canvas = WorldArea {
             id: None,
             draw_space: rect_space,
             full_space: rect_space,
@@ -144,4 +171,38 @@ impl<'a> Widget for WorldWidget<'a> {
             canvas.draw_child(*root_id);
         }
     }    
+}
+
+#[derive(Debug)]
+pub struct WorldArea<'a> {
+    pub id: Option<WorldId>,
+    pub draw_space: AbsoluteSpace,
+    pub full_space: AbsoluteSpace,
+    pub buf: &'a mut Buffer,
+    pub world: &'a WorldCanvas
+}
+
+impl<'a> WorldArea<'a> {
+    pub fn draw_child(&mut self, child_id: WorldId) {
+        let child_drawing = self.world.get_dyn(child_id);
+
+        let full_space = self.world.get_layout(child_id).space.to_absolute_space(self.full_space);
+        if !full_space.intersects(self.draw_space) {
+            return
+        }
+        
+        child_drawing.draw(WorldArea {
+            id: Some(child_id),
+            draw_space: full_space.intersection(self.draw_space),
+            full_space,
+            buf: self.buf,
+            world: self.world
+        });
+    }
+
+    pub fn draw_children(&mut self) {
+        for child_id in self.world.iter_children(self.id.unwrap()) {
+            self.draw_child(child_id);
+        }
+    }
 }

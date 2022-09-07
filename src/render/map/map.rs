@@ -8,7 +8,7 @@ use super::{
     }
 };
 
-use tui::style::Color;
+use tui::style::{Color, Style};
 
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -18,7 +18,7 @@ use std::io::prelude::*;
 
 #[derive(Debug)]
 pub struct Map {
-    pub cursor_dref: Option<DrawRef<Shape>>,
+    pub cursor_dref: Option<WorldRef<Shape>>,
     cursor_shape: Option<Shape>,
     tile_queue: Vec<Tile>
 }
@@ -86,30 +86,35 @@ impl Map {
 }
 
 impl<'a> Drawable for Map {
-    fn on_mount(map_drawing: &mut Drawing<Map>, controller: &mut MountController) {
-        map_drawing.set_size(UDim2::from_size2d(*MAP_SIZE));
+    fn on_mount(mut controller: WorldMountController) {
+        let (cursor_shape, tiles): (Shape, Vec<Tile>) = {
+            controller.get_layout_mut().set_size(UDim2::from_size2d(*MAP_SIZE));
+            let map_drawing = controller.get_drawing_mut::<Self>();
+            (map_drawing.cursor_shape.take().unwrap(), map_drawing.tile_queue.drain(..).collect())
+        };
 
-        for (i, tile) in map_drawing.pencil.tile_queue.drain(..).enumerate() {
-            controller.mount_child(tile)
+        for (i, tile) in tiles.into_iter().enumerate() {
+            let tile_ref = controller.mount_child(tile);
+            controller.canvas.get_layout_mut(tile_ref.id)
                 .set_position(UDim2::from_point2d(MAP_TILE_POINTS[i]))
                 .set_anchor(MAP_TILE_ANCHOR);
         }
 
-        let mut cursor_drawing = controller.mount_child(map_drawing.pencil.cursor_shape.take().unwrap());
-
-        cursor_drawing
-            .center()
-            .pencil.cell
-                .set_bg(Color::LightBlue);
+        let cursor_dref = {
+            let cursor_ref = controller.mount_child(cursor_shape);
+            controller.canvas.get_layout_mut(cursor_ref.id).center();
+            
+            cursor_ref
+        };
         
-        map_drawing.pencil.cursor_dref = Some(cursor_drawing.as_dref());
+        controller.get_drawing_mut::<Self>().cursor_dref = Some(cursor_dref);
     }
 
-    fn draw(&self, mut canvas: DrawingCanvas) {
+    fn draw(&self, mut area: WorldArea) {
         //canvas.world
         //    .get_mut(self.cursor_dref.as_ref().unwrap())
         //    .set_position(UDim2::from_point2d(self.cursor_position));
-        
-        canvas.draw_children();
+        area.buf.draw_lines(&MAP_LINES, area.draw_space, Style::default().fg(Color::White));
+        area.draw_children();
     }
 }
