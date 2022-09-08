@@ -18,7 +18,7 @@ use std::io::prelude::*;
 
 #[derive(Debug)]
 pub struct Map {
-    pub cursor_dref: Option<WorldRef<Shape>>,
+    pub cursor_wref: Option<WorldRef<Shape>>,
     cursor_shape: Option<Shape>,
     tile_queue: Vec<Tile>
 }
@@ -74,46 +74,34 @@ impl Map {
         Map {
             tile_queue: tiles,
             cursor_shape: Some(cursor_shape),
-            cursor_dref: None
+            cursor_wref: None
         }
     }
-
-    // pub fn set_cursor_pos(&self, position: Point2D, world_canvas: &WorldCanvas) {
-    //     world_canvas
-    //         .get_mut(self.cursor_dref.as_ref().unwrap())
-    //         .set_position(UDim2::from_point2d(position));
-    // }
 }
 
 impl<'a> Drawable for Map {
-    fn on_mount(mut controller: WorldMountController) {
-        let (cursor_shape, tiles): (Shape, Vec<Tile>) = {
-            controller.get_layout_mut().set_size(UDim2::from_size2d(*MAP_SIZE));
-            let map_drawing = controller.get_drawing_mut::<Self>();
-            (map_drawing.cursor_shape.take().unwrap(), map_drawing.tile_queue.drain(..).collect())
-        };
+    fn on_mounting(&mut self, mut mount: WorldMount) {
+        mount.layout.set_size(UDim2::from_size2d(*MAP_SIZE));
 
-        for (i, tile) in tiles.into_iter().enumerate() {
-            let tile_ref = controller.mount_child(tile);
-            controller.canvas.get_layout_mut(tile_ref.id)
-                .set_position(UDim2::from_point2d(MAP_TILE_POINTS[i]))
-                .set_anchor(MAP_TILE_ANCHOR);
+        for (i, tile) in self.tile_queue.drain(..).enumerate() {
+            mount.child(
+                tile, 
+                DrawLayout::default()
+                    .set_position(UDim2::from_point2d(MAP_TILE_POINTS[i]))
+                    .set_anchor(MAP_TILE_ANCHOR)
+                    .clone()
+            );
         }
-
-        let cursor_dref = {
-            let cursor_ref = controller.mount_child(cursor_shape);
-            controller.canvas.get_layout_mut(cursor_ref.id).center();
-            
-            cursor_ref
-        };
         
-        controller.get_drawing_mut::<Self>().cursor_dref = Some(cursor_dref);
+        self.cursor_wref = Some(mount.child(
+            self.cursor_shape.take().unwrap(), 
+            DrawLayout::default()
+                .center()
+                .clone()
+        ));
     }
 
     fn draw(&self, mut area: WorldArea) {
-        //canvas.world
-        //    .get_mut(self.cursor_dref.as_ref().unwrap())
-        //    .set_position(UDim2::from_point2d(self.cursor_position));
         area.buf.draw_lines(&MAP_LINES, area.draw_space, Style::default().fg(Color::White));
         area.draw_children();
     }

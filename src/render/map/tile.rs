@@ -105,58 +105,66 @@ impl Tile {
 }
 
 impl Drawable for Tile {
-    fn on_mount(mut controller: WorldMountController) {
-        let (roll, resource) = {
-            let tile_drawing = controller.get_drawing_mut::<Self>();
-            let roll = tile_drawing.roll;
-            let resource = tile_drawing.resource;
+    fn on_mounting(&mut self, mut mount: WorldMount) {
+        let roll = self.roll;
 
-            controller.get_layout_mut().set_size(UDim2::from_size2d(TILE_SIZE));
-
-            (roll, resource)
-        };
+        mount.layout.set_size(UDim2::from_size2d(TILE_SIZE));
         
-        {
-            let bkg_ref = controller.mount_child(Shape::new(&TILE_BITSHAPE, TILE_BKG_CELL.clone()));
-            controller.canvas.get_layout_mut(bkg_ref.id).center();
-            controller.canvas.get_mut(bkg_ref).cell.set_fg(resource.get_color());
-        }
+        mount.child(
+            Shape::new(
+                &TILE_BITSHAPE, 
+                TILE_BKG_CELL
+                    .clone()
+                    .set_fg(self.resource.get_color())
+                    .clone()
+            ), 
+            DrawLayout::default()
+                .center()
+                .clone()
+        );
 
-        {
-            let rarity_ref = controller.mount_child(Shape128::new(
+        mount.child(
+            Shape128::new(
                 &TILE_ROLL_RARITY_BITSHAPES[roll as usize], 
                 ROLL_RARITY_CELL.clone()
-            ));
-            controller.canvas.get_layout_mut(rarity_ref.id)
+            ),
+            DrawLayout::default()
                 .set_position(UDim2::new(0.5, 0, 1.0, -1))
-                .set_anchor(Scale2D::new(0.5, 0.5));
-        }
+                .set_anchor(Scale2D::new(0.5, 0.5))
+                .clone()
+        );
 
         if roll < 10 {
-            let digit0_ref = controller.mount_child(Shape128::new(
-                &DIGITS[roll as usize],
-                if roll.abs_diff(7) == 1 { BEST_ROLL_NUMBER_CELL.clone() } else { DEFAULT_ROLL_NUMBER_CELL.clone() }
-            ));
-            controller.canvas.get_layout_mut(digit0_ref.id).center();
+            mount.child(
+                Shape128::new(
+                    &DIGITS[roll as usize],
+                    if roll.abs_diff(7) == 1 
+                        { BEST_ROLL_NUMBER_CELL.clone() } else 
+                        { DEFAULT_ROLL_NUMBER_CELL.clone() }
+                ),
+                DrawLayout::default().center().clone()
+            );
         } else {
-            {
-                let digit0_ref = controller.mount_child(Shape128::new(
+            mount.child(
+                Shape128::new(
                     &DIGITS[(roll % 10) as usize], 
                     DEFAULT_ROLL_NUMBER_CELL.clone()
-                ));
-                controller.canvas.get_layout_mut(digit0_ref.id)
+                ), 
+                DrawLayout::default()
                     .set_position(UDim2::new(0.5, 1, 0.5, 0))
-                    .set_anchor(Scale2D::new(0.0, 0.5));
-            }
-            {
-                let digit1_ref = controller.mount_child(Shape128::new(
+                    .set_anchor(Scale2D::new(0.0, 0.5))
+                    .clone()
+            );
+            mount.child(
+                Shape128::new(
                     &DIGITS[(roll / 10) as usize], 
                     DEFAULT_ROLL_NUMBER_CELL.clone()
-                ));
-                controller.canvas.get_layout_mut(digit1_ref.id)
+                ),
+                DrawLayout::default()
                     .set_position(UDim2::new(0.5, -1, 0.5, 0))
-                    .set_anchor(Scale2D::new(1.0, 0.5));
-            }
+                    .set_anchor(Scale2D::new(1.0, 0.5))
+                    .clone()
+            );
         }
     }
 

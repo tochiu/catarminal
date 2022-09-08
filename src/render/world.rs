@@ -46,7 +46,7 @@ impl World {
 #[derive(Debug, Default)]
 pub struct WorldCanvas {
     roots: Vec<WorldId>,
-    nodes: Vec<Box<dyn Drawable>>,
+    nodes: Vec<Option<Box<dyn Drawable>>>,
     edges: Vec<Vec<WorldId>>,
     layout: Vec<DrawLayout>
 }
@@ -59,39 +59,23 @@ impl WorldCanvas {
     }
 
     pub fn mount_root<T: Drawable>(&mut self, drawable: T) -> WorldRef<T> {
-        self.mount(drawable, None)
+        self.mount(drawable, DrawLayout::FULL, None)
+    }
+    
+    pub fn get<T: Drawable>(&self, wref: WorldRef<T>) -> &T {
+        self.get_dyn(wref.id).as_any().downcast_ref::<T>().unwrap()
     }
 
-    // pub fn get<T: Drawable>(&self, dref: &WorldRef<T>) -> &Drawing<T> {
-    //     self.nodes[dref.id].borrow().as_ref().unwrap().as_any().downcast_ref::<Drawing<T>>().unwrap()
-    // }
-    
-    // pub fn get<T: Drawable>(&self, dref: WorldRef<T>) -> DrawingRef<T> {
-    //     Ref::map(self.nodes[dref.id].borrow(), |x| &x.as_ref().unwrap().downcast_ref::<T>())
-    // }
-    
-    //RefMut<DrRefMut<'a, T>>
-    // pub fn get_mut<'a, T: Drawable>(&'a self, dref: WorldRef<T>) -> RefMut<Drawing<dyn Drawable>> {
-    //     let m = RefMut::map(self.nodes[dref.id].borrow_mut(), |x| x.as_mut().unwrap());
-    //     //.downcast_mut::<'a, T>()
-    //     let k = RefMut::map(m, |x| x.downcast_mut::<'a, T>());
-    //     m
-    // }
-    
-    pub fn get<T: Drawable>(&self, world_ref: WorldRef<T>) -> &T {
-        self.get_dyn(world_ref.id).as_any().downcast_ref::<T>().unwrap()
-    }
-
-    pub fn get_mut<T: Drawable>(&mut self, world_ref: WorldRef<T>) -> &mut T {
-        self.get_dyn_mut(world_ref.id).as_any_mut().downcast_mut::<T>().unwrap()
+    pub fn get_mut<T: Drawable>(&mut self, wref: WorldRef<T>) -> &mut T {
+        self.get_dyn_mut(wref.id).as_any_mut().downcast_mut::<T>().unwrap()
     }
 
     pub fn get_dyn(&self, id: WorldId) -> &Box<dyn Drawable> {
-        &self.nodes[id]
+        self.nodes[id].as_ref().unwrap()
     }
 
     pub fn get_dyn_mut(&mut self, id: WorldId) -> &mut Box<dyn Drawable> {
-        &mut self.nodes[id]
+        self.nodes[id].as_mut().unwrap()
     }
 
     pub fn get_layout(&self, id: WorldId) -> &DrawLayout {
@@ -106,22 +90,27 @@ impl WorldCanvas {
         self.edges[id].iter().cloned()
     }
 
-    fn mount<T: Drawable>(&mut self, drawing: T, parent_id: Option<WorldId>) -> WorldRef<T> {
+    fn mount<T: Drawable>(&mut self, mut drawing: T, mut layout: DrawLayout, parent_id: Option<WorldId>) -> WorldRef<T> {
         let id = self.nodes.len();
 
-        self.nodes.push(Box::new(drawing));
+        self.nodes.push(None);
         self.edges.push(Vec::new());
-        self.layout.push(DrawLayout {
-            space: Space::FULL
+        self.layout.push(DrawLayout::default());
+
+        drawing.on_mounting(WorldMount { 
+            id, 
+            layout: &mut layout,
+            canvas: self 
         });
+
+        self.nodes[id].replace(Box::new(drawing));
+        self.layout[id] = layout;
 
         if let Some(parent_id) = parent_id {
             self.edges[parent_id].push(id);
         } else {
             self.roots.push(id);
         }
-        
-        T::on_mount(WorldMountController { drawing_id: id, canvas: self });
 
         WorldRef {
             id,
@@ -130,25 +119,15 @@ impl WorldCanvas {
     }
 }
 
-pub struct WorldMountController<'a> {
-    drawing_id: WorldId,
+pub struct WorldMount<'a> {
+    id: WorldId,
+    pub layout: &'a mut DrawLayout,
     pub canvas: &'a mut WorldCanvas,
 }
 
-impl<'a> WorldMountController<'a> {
-    pub fn get_drawing_mut<T: Drawable>(&mut self) -> &mut T {
-        self.canvas.get_mut(WorldRef {
-            id: self.drawing_id,
-            tp: PhantomData::<T>
-        })
-    }
-
-    pub fn get_layout_mut(&mut self) -> &mut DrawLayout {
-        self.canvas.get_layout_mut(self.drawing_id)
-    }
-
-    pub fn mount_child<T: Drawable>(&mut self, drawable: T) -> WorldRef<T> {
-        self.canvas.mount(drawable, Some(self.drawing_id))
+impl<'a> WorldMount<'a> {
+    pub fn child<T: Drawable>(&mut self, drawable: T, layout: DrawLayout) -> WorldRef<T> {
+        self.canvas.mount(drawable, layout, Some(self.id))
     }
 }
 

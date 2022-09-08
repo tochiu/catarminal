@@ -57,8 +57,6 @@ lazy_static! {
 }
 
 pub fn run() -> Result<(), io::Error> {
-    // let shape = Shape::new(&DOUBLE_UP_BITSHAPE);
-    // let shape2 = Draw::new(shape, 0).as_any_mut().downcast_mut::<Drawing<Shape>>();
 
     let mut rng = rand::thread_rng();
     let mut world = World::new();
@@ -69,11 +67,18 @@ pub fn run() -> Result<(), io::Error> {
         let roll: u8 = rng.gen_range(2..12);
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
-
-    let mut cursor_cell = Cell::default();
-    cursor_cell.set_fg(tui::style::Color::LightBlue).set_symbol(tui::symbols::block::FULL);
-    let map_ref = world.canvas.mount_root(Map::new(Shape::new(&DND_NOW_BITSHAPE, cursor_cell), tiles));
-    let cursor_ref = world.canvas.get(map_ref).cursor_dref.unwrap();
+    
+    let cursor_id = {
+        let cursor_shape = Shape::new(
+            &DND_NOW_BITSHAPE, 
+            Cell::default()
+                .set_fg(tui::style::Color::LightBlue)
+                .set_symbol(tui::symbols::block::FULL)
+                .clone()
+        );
+        let map_wref = world.canvas.mount_root(Map::new(cursor_shape, tiles));
+        world.canvas.get(map_wref).cursor_wref.unwrap().id
+    };
 
     // setup terminal
     enable_raw_mode()?;
@@ -109,7 +114,7 @@ pub fn run() -> Result<(), io::Error> {
                         MouseEventKind::Moved => {
                             should_render = true;
                             world.canvas
-                                .get_layout_mut(cursor_ref.id)
+                                .get_layout_mut(cursor_id)
                                 .set_position(UDim2::from_size2d(Size2D::new(event.column, event.row)));
                         },
                         _ => ()

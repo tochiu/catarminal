@@ -31,9 +31,8 @@ impl Shape128 {
 }
 
 impl Drawable for Shape128 {
-    fn on_mount(mut controller: WorldMountController) {
-        let size = UDim2::from_size2d(controller.get_drawing_mut::<Self>().shape.size);
-        controller.get_layout_mut().set_size(size);
+    fn on_mounting(&mut self, mount: WorldMount) {
+        mount.layout.set_size(UDim2::from_size2d(self.shape.size));
     }
 
     fn draw(&self, area: WorldArea) {
@@ -106,15 +105,11 @@ impl Shape {
 }
 
 impl Drawable for Shape {
-    fn on_mount(mut controller: WorldMountController) {
-        let size = UDim2::from_size2d(controller.get_drawing_mut::<Self>().shape.size);
-        //println!("{:#?}", size);
-        controller.get_layout_mut().set_size(size);
+    fn on_mounting(&mut self, mount: WorldMount) {
+        mount.layout.set_size(UDim2::from_size2d(self.shape.size));
     }
 
     fn draw(&self, area: WorldArea) {
-        //println!("{:#?} {:#?}", self, area.draw_space);
-        
         for point in area.draw_space {
             let bit_point = area.full_space.relative_position_of(point);
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;

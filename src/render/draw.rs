@@ -2,7 +2,7 @@ use std::any::Any;
 
 use super::{
     space::*,
-    world::{WorldArea, WorldMountController}
+    world::{WorldArea, WorldMount}
 };
 
 use tui::{
@@ -10,12 +10,16 @@ use tui::{
     style::Style
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct DrawLayout {
     pub space: Space
 }
 
 impl DrawLayout {
+    pub const FULL: DrawLayout = DrawLayout {
+        space: Space::FULL
+    };
+
     pub fn center(&mut self) -> &mut Self {
         self.set_space(self.space.center())
     }
@@ -45,7 +49,7 @@ pub trait Drawable: std::fmt::Debug + AsAny + 'static {
     fn draw(&self, area: WorldArea);
 
     #[allow(unused_variables)]
-    fn on_mount(mut controller: WorldMountController)
+    fn on_mounting(&mut self, mount: WorldMount)
         where Self: Sized 
     {}
 }
