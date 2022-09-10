@@ -13,10 +13,11 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use std::{io, time::Duration};
 use tui::{
-    backend::CrosstermBackend,
-    Terminal,
+    backend::{CrosstermBackend, Backend},
+    Terminal, widgets::*, layout::{Constraint, Layout, Direction}, style::{Style, Color}, Frame,
 };
 
 use rand::Rng;
@@ -56,7 +57,7 @@ lazy_static! {
     };
 }
 
-pub fn run() -> Result<(), io::Error> {
+pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
     let mut rng = rand::thread_rng();
     let mut world = World::new();
@@ -113,9 +114,45 @@ pub fn run() -> Result<(), io::Error> {
         }
 
         terminal.draw(|f| {
-            f.render_widget(world.as_widget(), f.size());
+            draw_frame(f, &mut world, enable_logger);
         })?;
     }
 
     Ok(())
+}
+
+fn draw_frame<B: Backend>(f: &mut Frame<B>, world: &mut World, draw_logger: bool) {
+    
+
+    // Log output
+    if draw_logger {
+        let rects = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+            .split(f.size());
+
+        f.render_widget(world.as_widget(), rects[0]);
+
+        let tui_w = TuiLoggerWidget::default()
+            .block(
+                Block::default()
+                    .title("Log output")
+                    .border_style(Style::default().fg(Color::White).bg(Color::Black))
+                    .borders(Borders::ALL),
+            )
+            .output_separator('|')
+            .output_timestamp(Some("%F %H:%M:%S%.3f ".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(false)
+            .output_file(false)
+            .output_line(false)
+            .style_error(Style::default().fg(Color::Red))
+            .style_debug(Style::default().fg(Color::Cyan))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_trace(Style::default().fg(Color::White))
+            .style_info(Style::default().fg(Color::Green));
+        f.render_widget(tui_w, rects[1]);
+    } else {
+        f.render_widget(world.as_widget(), f.size());
+    }
 }
