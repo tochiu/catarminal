@@ -2,7 +2,7 @@ use std::any::Any;
 
 use super::{
     space::*,
-    world::{WorldArea, WorldMount}
+    world::{WorldArea, WorldMount, WorldInputEvent}
 };
 
 use tui::{
@@ -49,9 +49,15 @@ pub trait Drawable: std::fmt::Debug + AsAny + 'static {
     fn draw(&self, area: WorldArea);
 
     #[allow(unused_variables)]
-    fn on_mounting(&mut self, mount: WorldMount)
-        where Self: Sized 
-    {}
+    fn layout(&mut self, space: AbsoluteSpace, layout: &mut DrawLayout) -> AbsoluteSpace { space }
+
+    #[allow(unused_variables)]
+    fn on_mounting(&mut self, mount: WorldMount) {}
+
+    #[allow(unused_variables)]
+    fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool { 
+        false 
+    }
 }
 
 pub trait AsAny {
@@ -70,18 +76,19 @@ impl<T: Drawable + 'static> AsAny for T {
 }
 
 pub trait DrawBuffer {
-    fn draw_lines<S>(&mut self, lines: &Vec<S>, space: AbsoluteSpace, style: Style)
+    fn draw_lines<S>(&mut self, lines: &Vec<S>, draw_space: AbsoluteSpace, full_space: AbsoluteSpace, style: Style)
         where S: AsRef<str>;
 }
 
 impl DrawBuffer for Buffer {
-    fn draw_lines<S>(&mut self, lines: &Vec<S>, space: AbsoluteSpace, style: Style)
+    fn draw_lines<S>(&mut self, lines: &Vec<S>, draw_space: AbsoluteSpace, full_space: AbsoluteSpace, style: Style)
         where S: AsRef<str>
     {
-        let height = lines.len().min(space.size.y as usize) as u16;
-        for y in 0..height {
-            let point = space.absolute_position_of(Point2D::new(0, y as i16));
-            self.set_stringn(point.x as u16, point.y as u16, &lines[y as usize], space.size.x as usize, style);
+        let offset_y = draw_space.position.y - full_space.position.y;
+        let offset_x = draw_space.position.x - full_space.position.x;
+        for y in 0..lines.len().min(draw_space.size.y as usize) as i16 {
+            let point = draw_space.absolute_position_of(Point2D::new(0, y as i16));
+            self.set_stringn(point.x as u16, point.y as u16, &lines[(y + offset_y) as usize].as_ref()[offset_x as usize..], draw_space.size.x as usize, style);
         }
     }
 }

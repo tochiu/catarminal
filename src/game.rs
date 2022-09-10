@@ -1,20 +1,20 @@
 use crate::{
     // enums,
     render::{
+        drag::Dragger,
         space::*,
-        shape::{BitShape, Shape},
+        shape::BitShape,
         map::{Map, Tile}, world::World
     }
 };
 
 use crossterm::{
-    event::{poll, read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind},
+    event::{poll, read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{io, time::Duration};
 use tui::{
-    buffer::Cell,
     backend::CrosstermBackend,
     Terminal,
 };
@@ -68,17 +68,10 @@ pub fn run() -> Result<(), io::Error> {
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
     
-    let cursor_id = {
-        let cursor_shape = Shape::new(
-            &DND_NOW_BITSHAPE, 
-            Cell::default()
-                .set_fg(tui::style::Color::LightBlue)
-                .set_symbol(tui::symbols::block::FULL)
-                .clone()
-        );
-        let map_wref = world.canvas.mount_root(Map::new(cursor_shape, tiles));
-        world.canvas.get(map_wref).cursor_wref.unwrap().id
-    };
+    let mut map_dragger = Dragger::new();
+    map_dragger.canvas_size = UDim2::from_size2d(Map::get_map_size());
+    let map_dragger_id = world.canvas.mount_root(map_dragger).id;
+    world.canvas.mount_child(Map::new(tiles), map_dragger_id);
 
     // setup terminal
     enable_raw_mode()?;
@@ -91,7 +84,7 @@ pub fn run() -> Result<(), io::Error> {
         let mut should_render = false;
         if poll(Duration::from_millis(16))? {
             match read()? {
-                Event::Resize(_, _) => should_render = true, //terminal.resize(Rect::new(0, 0, x, y))?,
+                Event::Resize(_, _) => should_render = true,
                 Event::Key(key) => {
                     match key.code {
                         KeyCode::Esc => {
@@ -110,15 +103,7 @@ pub fn run() -> Result<(), io::Error> {
                     }
                 },
                 Event::Mouse(event) => {
-                    match event.kind {
-                        MouseEventKind::Moved => {
-                            should_render = true;
-                            world.canvas
-                                .get_layout_mut(cursor_id)
-                                .set_position(UDim2::from_size2d(Size2D::new(event.column, event.row)));
-                        },
-                        _ => ()
-                    }
+                    should_render = should_render || world.input.handle_mouse_input(event, &mut world.canvas);
                 }
             }
         }
@@ -127,12 +112,8 @@ pub fn run() -> Result<(), io::Error> {
             continue
         }
 
-        // let dx: i16 = rng.gen_range(-10..11);
-        // let dy: i16 = rng.gen_range(-10..11);
-        // map_drawing.pencil.set_four_pos(UDim2::new(0.5, dx, 0.5, dy));
-
         terminal.draw(|f| {
-            f.render_widget(world.canvas.as_widget(), f.size());
+            f.render_widget(world.as_widget(), f.size());
         })?;
     }
 

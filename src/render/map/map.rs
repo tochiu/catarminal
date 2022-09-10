@@ -2,7 +2,6 @@ use super::{
     tile::*,
     super::{
         space::*,
-        shape::*,
         draw::*,
         world::*
     }
@@ -18,8 +17,6 @@ use std::io::prelude::*;
 
 #[derive(Debug)]
 pub struct Map {
-    pub cursor_wref: Option<WorldRef<Shape>>,
-    cursor_shape: Option<Shape>,
     tile_queue: Vec<Tile>
 }
 
@@ -70,11 +67,13 @@ impl Map {
         MAP_TILE_POINTS.len()
     }
 
-    pub fn new(cursor_shape: Shape, tiles: Vec<Tile>) -> Self {
+    pub fn get_map_size() -> Size2D {
+        *MAP_SIZE
+    }
+
+    pub fn new(tiles: Vec<Tile>) -> Self {
         Map {
-            tile_queue: tiles,
-            cursor_shape: Some(cursor_shape),
-            cursor_wref: None
+            tile_queue: tiles
         }
     }
 }
@@ -92,17 +91,10 @@ impl<'a> Drawable for Map {
                     .clone()
             );
         }
-        
-        self.cursor_wref = Some(mount.child(
-            self.cursor_shape.take().unwrap(), 
-            DrawLayout::default()
-                .center()
-                .clone()
-        ));
     }
 
     fn draw(&self, mut area: WorldArea) {
-        area.buf.draw_lines(&MAP_LINES, area.draw_space, Style::default().fg(Color::White));
+        area.buf.draw_lines(&MAP_LINES, area.draw_space, area.full_space, Style::default().fg(Color::White));
         area.draw_children();
     }
 }
