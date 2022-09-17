@@ -1,8 +1,6 @@
-use std::any::Any;
-
 use super::{
     space::*,
-    world::{WorldArea, WorldMount, WorldInputEvent}
+    world::*
 };
 
 use tui::{
@@ -45,34 +43,9 @@ impl DrawLayout {
     }
 }
 
-pub trait Drawable: std::fmt::Debug + AsAny + 'static {
+pub trait Drawing: std::fmt::Debug {
     fn draw(&self, area: WorldArea);
-
-    #[allow(unused_variables)]
-    fn layout(&mut self, space: AbsoluteSpace, layout: &mut DrawLayout) -> AbsoluteSpace { space }
-
-    #[allow(unused_variables)]
-    fn on_mounting(&mut self, mount: WorldMount) {}
-
-    #[allow(unused_variables)]
-    fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool { 
-        false 
-    }
-}
-
-pub trait AsAny {
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-impl<T: Drawable + 'static> AsAny for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
+    fn layout_ref(&self) -> &DrawLayout;
 }
 
 pub trait DrawBuffer {

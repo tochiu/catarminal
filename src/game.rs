@@ -1,9 +1,7 @@
 use crate::{
-    // enums,
     render::{
-        drag::Dragger,
-        space::*,
-        map::{Map, Tile}, world::World
+        map::{Map, Tile}, 
+        world::World
     }
 };
 
@@ -25,19 +23,14 @@ use rand::Rng;
 pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
     let mut rng = rand::thread_rng();
-    let mut world = World::new();
-
     let mut tiles: Vec<Tile> = Vec::with_capacity(Map::get_tile_capacity());
     
     for _ in 0..tiles.capacity() {
         let roll: u8 = rng.gen_range(2..12);
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
-    
-    let mut map_dragger = Dragger::new();
-    map_dragger.canvas_size = UDim2::from_size2d(Map::get_map_size());
-    let map_dragger_id = world.canvas.mount_root(map_dragger).id;
-    world.canvas.mount_child(Map::new(tiles), map_dragger_id);
+
+    let mut world = World::new(Map::new(tiles));
 
     // setup terminal
     enable_raw_mode()?;
@@ -70,7 +63,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                 },
                 Event::Mouse(event) => {
                     info!("mouse event: {:?}", event);
-                    should_render = should_render || world.input.handle_mouse_input(event, &mut world.canvas);
+                    should_render = should_render || world.input.handle_mouse_input(event, &mut world.root);
                 }
             }
         }
@@ -146,7 +139,7 @@ fn draw_frame<B: Backend>(f: &mut Frame<B>, space: Rect, world: &mut World) {
 
     let right_pane_rects = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(rects[1].height - 5*4), Constraint::Min(5*4)].as_ref())
+        .constraints([Constraint::Length(rects[1].height.saturating_sub(5*4)), Constraint::Min(5*4)].as_ref())
         .split(rects[1]);
     let chat_event_rects = Layout::default()
         .direction(Direction::Vertical)

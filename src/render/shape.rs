@@ -20,21 +20,24 @@ impl BitShape128 {
 
 #[derive(Debug)]
 pub struct Shape128 {
+    pub layout: DrawLayout,
     pub shape: &'static BitShape128,
     pub cell: Cell
 }
 
 impl Shape128 {
     pub fn new(shape: &'static BitShape128, cell: Cell) -> Self {
-        Shape128 { shape, cell }
+        Shape128 { 
+            shape, 
+            cell, 
+            layout: DrawLayout::default()
+                .set_size(UDim2::from_size2d(shape.size))
+                .clone() 
+        }
     }
 }
 
-impl Drawable for Shape128 {
-    fn on_mounting(&mut self, mount: WorldMount) {
-        mount.layout.set_size(UDim2::from_size2d(self.shape.size));
-    }
-
+impl Drawing for Shape128 {
     fn draw(&self, area: WorldArea) {
         for point in area.draw_space {
             let bit_point = area.full_space.relative_position_of(point);
@@ -43,6 +46,10 @@ impl Drawable for Shape128 {
                 area.buf.content[i] = self.cell.clone();
             }
         }
+    }
+
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
     }
 }
 
@@ -94,21 +101,24 @@ impl BitShape {
 
 #[derive(Debug)]
 pub struct Shape {
+    pub layout: DrawLayout,
     pub shape: &'static BitShape,
     pub cell: Cell
 }
 
 impl Shape {
     pub fn new(shape: &'static BitShape, cell: Cell) -> Self {
-        Shape { shape, cell }
+        Shape { 
+            shape, 
+            cell, 
+            layout: DrawLayout::default()
+                .set_size(UDim2::from_size2d(shape.size))
+                .clone() 
+        }
     }
 }
 
-impl Drawable for Shape {
-    fn on_mounting(&mut self, mount: WorldMount) {
-        mount.layout.set_size(UDim2::from_size2d(self.shape.size));
-    }
-
+impl Drawing for Shape {
     fn draw(&self, area: WorldArea) {
         for point in area.draw_space {
             let bit_point = area.full_space.relative_position_of(point);
@@ -118,5 +128,9 @@ impl Drawable for Shape {
                 area.buf.content[i] = self.cell.clone();
             }
         }
+    }
+
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
     }
 }

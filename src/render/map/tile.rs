@@ -74,7 +74,7 @@ lazy_static! {
         shapes
     };
 
-    static ref TILE_BITSHAPE: BitShape = {
+    static ref TILE_BKG_BITSHAPE: BitShape = {
         let width = TILE_SIZE.x;
         let height = TILE_SIZE.y;
 
@@ -94,81 +94,81 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct Tile {
-    roll: u8,
-    resource: enums::Resource
+
+    pub layout: DrawLayout,
+
+    bkg: Shape,
+    rarity: Shape128, 
+    digits: Vec<Shape128>
 }
 
 impl Tile {
     pub fn new(roll: u8, resource: enums::Resource) -> Self {
-        Tile { roll, resource }
+        let mut bkg = Shape::new(
+            &TILE_BKG_BITSHAPE, 
+            TILE_BKG_CELL
+                .clone()
+                .set_fg(resource.get_color())
+                .clone()
+        );
+
+        bkg.layout.center();
+        
+        let mut rarity = Shape128::new(
+            &TILE_ROLL_RARITY_BITSHAPES[roll as usize], 
+            ROLL_RARITY_CELL.clone()
+        );
+        rarity.layout
+            .set_position(UDim2::new(0.5, 0, 1.0, -1))
+            .set_anchor(Scale2D::new(0.5, 0.5));
+
+        let mut digits = Vec::with_capacity(if roll < 10 {1} else {2});
+
+        if roll < 10 {
+            digits.push(Shape128::new(
+                &DIGITS[roll as usize],
+                if roll.abs_diff(7) == 1 
+                    { BEST_ROLL_NUMBER_CELL.clone() } else 
+                    { DEFAULT_ROLL_NUMBER_CELL.clone() }
+            ));
+            digits[0].layout.center();
+        } else {
+            digits.push(Shape128::new(
+                &DIGITS[(roll % 10) as usize], 
+                DEFAULT_ROLL_NUMBER_CELL.clone()
+            ));
+            digits[0].layout
+                .set_position(UDim2::new(0.5, 1, 0.5, 0))
+                .set_anchor(Scale2D::new(0.0, 0.5));
+            
+            digits.push(Shape128::new(
+                &DIGITS[(roll / 10) as usize], 
+                DEFAULT_ROLL_NUMBER_CELL.clone()
+            ));
+            digits[1].layout
+                .set_position(UDim2::new(0.5, -1, 0.5, 0))
+                .set_anchor(Scale2D::new(1.0, 0.5));
+        }
+
+        Tile { 
+            bkg,
+            rarity,
+            digits,
+            layout: DrawLayout::default()
+                .set_size(UDim2::from_size2d(TILE_SIZE))
+                .clone() 
+        }
     }
 }
 
-impl Drawable for Tile {
-    fn on_mounting(&mut self, mut mount: WorldMount) {
-        let roll = self.roll;
-
-        mount.layout.set_size(UDim2::from_size2d(TILE_SIZE));
-        
-        mount.child(
-            Shape::new(
-                &TILE_BITSHAPE, 
-                TILE_BKG_CELL
-                    .clone()
-                    .set_fg(self.resource.get_color())
-                    .clone()
-            ), 
-            DrawLayout::default()
-                .center()
-                .clone()
-        );
-
-        mount.child(
-            Shape128::new(
-                &TILE_ROLL_RARITY_BITSHAPES[roll as usize], 
-                ROLL_RARITY_CELL.clone()
-            ),
-            DrawLayout::default()
-                .set_position(UDim2::new(0.5, 0, 1.0, -1))
-                .set_anchor(Scale2D::new(0.5, 0.5))
-                .clone()
-        );
-
-        if roll < 10 {
-            mount.child(
-                Shape128::new(
-                    &DIGITS[roll as usize],
-                    if roll.abs_diff(7) == 1 
-                        { BEST_ROLL_NUMBER_CELL.clone() } else 
-                        { DEFAULT_ROLL_NUMBER_CELL.clone() }
-                ),
-                DrawLayout::default().center().clone()
-            );
-        } else {
-            mount.child(
-                Shape128::new(
-                    &DIGITS[(roll % 10) as usize], 
-                    DEFAULT_ROLL_NUMBER_CELL.clone()
-                ), 
-                DrawLayout::default()
-                    .set_position(UDim2::new(0.5, 1, 0.5, 0))
-                    .set_anchor(Scale2D::new(0.0, 0.5))
-                    .clone()
-            );
-            mount.child(
-                Shape128::new(
-                    &DIGITS[(roll / 10) as usize], 
-                    DEFAULT_ROLL_NUMBER_CELL.clone()
-                ),
-                DrawLayout::default()
-                    .set_position(UDim2::new(0.5, -1, 0.5, 0))
-                    .set_anchor(Scale2D::new(1.0, 0.5))
-                    .clone()
-            );
-        }
+impl Drawing for Tile {
+    fn draw(&self, mut area: WorldArea) {
+        area.draw_child(&self.bkg);
+        area.draw_child(&self.rarity);
+        area.draw_children(&self.digits);
     }
 
-    fn draw(&self, mut area: WorldArea) {
-        area.draw_children();
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
     }
 }

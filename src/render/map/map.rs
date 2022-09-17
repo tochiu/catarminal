@@ -3,7 +3,8 @@ use super::{
     super::{
         space::*,
         draw::*,
-        world::*
+        world::*,
+        mount::*
     }
 };
 
@@ -15,9 +16,11 @@ use unicode_width::UnicodeWidthStr;
 use std::fs::File;
 use std::io::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Map {
-    tile_queue: Vec<Tile>
+    tiles: Vec<Tile>,
+    layout: DrawLayout,
+    mount: Mount
 }
 
 const MAP_TILE_ANCHOR: Scale2D = Scale2D::new(0.0, 0.5);
@@ -67,34 +70,34 @@ impl Map {
         MAP_TILE_POINTS.len()
     }
 
-    pub fn get_map_size() -> Size2D {
-        *MAP_SIZE
-    }
-
     pub fn new(tiles: Vec<Tile>) -> Self {
-        Map {
-            tile_queue: tiles
+        let mut map = Map { tiles, ..Map::default() };
+
+        map.layout.set_size(UDim2::from_size2d(*MAP_SIZE));
+        for (i, tile) in map.tiles.iter_mut().enumerate() {
+            tile.layout
+                .set_position(UDim2::from_point2d(MAP_TILE_POINTS[i]))
+                .set_anchor(MAP_TILE_ANCHOR);
         }
+
+        map
     }
 }
 
-impl<'a> Drawable for Map {
-    fn on_mounting(&mut self, mut mount: WorldMount) {
-        mount.layout.set_size(UDim2::from_size2d(*MAP_SIZE));
-
-        for (i, tile) in self.tile_queue.drain(..).enumerate() {
-            mount.child(
-                tile, 
-                DrawLayout::default()
-                    .set_position(UDim2::from_point2d(MAP_TILE_POINTS[i]))
-                    .set_anchor(MAP_TILE_ANCHOR)
-                    .clone()
-            );
-        }
-    }
-
+impl Drawing for Map {
     fn draw(&self, mut area: WorldArea) {
         area.buf.draw_lines(&MAP_LINES, area.draw_space, area.full_space, Style::default().fg(Color::White));
-        area.draw_children();
+        area.draw_children(&self.tiles);
     }
+
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl Mountable for Map {
+    fn mount_ref(&self) -> &Mount { &self.mount }
+    fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
+    fn child_ref(&self, _: usize) -> Option<&dyn Mountable> { None }
+    fn child_mut(&mut self, _: usize) -> Option<&mut dyn Mountable> { None }
 }

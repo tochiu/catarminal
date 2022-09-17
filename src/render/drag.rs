@@ -1,28 +1,38 @@
 use super::{
-    draw::*, 
-    world::*,
-    space::*
+    space::*, 
+    mount::{Mountable, Mount}, 
+    draw::{DrawLayout, Drawing}, 
+    world::{WorldArea, WorldLayout, WorldInputEvent, WorldInputEventKind}
 };
 
 #[derive(Debug)]
-pub struct Dragger {
-    pub canvas_size: UDim2,
+pub struct Dragger<T: Mountable> {
+    pub drawing: T,
+    pub layout: DrawLayout,
+    mount: Mount,
     canvas_offset: Point2D,
     mouse_location: Point2D
 }
 
-impl Dragger {
-    pub fn new() -> Self {
+impl<T: Mountable> Dragger<T> {
+    pub fn new(drawing: T) -> Self {
         Dragger {
-            canvas_size: UDim2::from_scale(1.0, 1.0),
+            drawing,
+            layout: DrawLayout::FULL,
+            mount: Mount::default(),
             canvas_offset: Point2D::default(),
             mouse_location: Point2D::default()
         }
     }
 
-    fn get_constrained_canvas_offset(&self, canvas_size: Size2D, window_size: Size2D) -> Point2D {
-        let max_offset_x = i16::try_from(canvas_size.x.saturating_sub(window_size.x)).unwrap_or(i16::MAX);
-        let max_offset_y = i16::try_from(canvas_size.y.saturating_sub(window_size.y)).unwrap_or(i16::MAX);
+    fn get_absolute_canvas_size(&self, absolute_window_space: AbsoluteSpace) -> Size2D {
+        self.drawing.layout_ref().space.to_absolute_space(absolute_window_space).size
+    }
+
+    fn get_constrained_canvas_offset(&self, absolute_window_space: AbsoluteSpace) -> Point2D {
+        let canvas_size = self.get_absolute_canvas_size(absolute_window_space);
+        let max_offset_x = i16::try_from(canvas_size.x.saturating_sub(absolute_window_space.size.x)).unwrap_or(i16::MAX);
+        let max_offset_y = i16::try_from(canvas_size.y.saturating_sub(absolute_window_space.size.y)).unwrap_or(i16::MAX);
         Point2D::new(
             self.canvas_offset.x.min(max_offset_x).max(0), 
             self.canvas_offset.y.min(max_offset_y).max(0)
@@ -30,33 +40,54 @@ impl Dragger {
     }
 
     fn get_canvas_space(&self, window_space: AbsoluteSpace) -> AbsoluteSpace {
-        let canvas_space = Space::sized(self.canvas_size).to_absolute_space(window_space);
         AbsoluteSpace::new(
-            canvas_space.position.x.saturating_sub(self.canvas_offset.x), 
-            canvas_space.position.y.saturating_sub(self.canvas_offset.y), 
-            canvas_space.size.x,
-            canvas_space.size.y
+            window_space.position.x.saturating_sub(self.canvas_offset.x), 
+            window_space.position.y.saturating_sub(self.canvas_offset.y), 
+            window_space.size.x,
+            window_space.size.y
         )
     }
 }
 
-impl Drawable for Dragger {
-    fn draw(&self, mut area: WorldArea) {
-        let draw_space = area.draw_space;
+impl<T: Mountable> Drawing for Dragger<T> {
+    fn draw(&self, area: WorldArea) {
         let canvas_space = self.get_canvas_space(area.full_space);
-        area.update_input(draw_space);
-        area.transform(draw_space, canvas_space).draw_children();
+        area.transform(canvas_space).draw_child(&self.drawing);
     }
 
-    fn layout(&mut self, window_space: AbsoluteSpace, _: &mut DrawLayout) -> AbsoluteSpace {
-        // get the absolute canvas size using the absolute window size and constrain the dragging range (max canvas offset)
-        self.canvas_offset = self.get_constrained_canvas_offset(
-            Space::sized(self.canvas_size).to_absolute_space(window_space).size, 
-            window_space.size
-        );
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
 
-        // return the canvas space so children can layout relative to the canvas space instead of the window space
-        self.get_canvas_space(window_space)
+impl<T: Mountable> Mountable for Dragger<T> {
+    fn mount_ref(&self) -> &Mount {
+        &self.mount
+    }
+
+    fn mount_mut(&mut self) -> &mut Mount {
+        &mut self.mount
+    }
+
+    fn child_ref(&self, i: usize) -> Option<&dyn Mountable> {
+        match i {
+            0 => Some(self.drawing.as_trait_ref()),
+            _ => None
+        }
+    }
+
+    fn child_mut(&mut self, i: usize) -> Option<&mut dyn Mountable> {
+        match i {
+            0 => Some(self.drawing.as_trait_mut()),
+            _ => None
+        }
+    }
+
+    fn layout(&mut self, mut layout: WorldLayout) {
+        let absolute_window_space = layout.calculated_space;
+        self.canvas_offset = self.get_constrained_canvas_offset(absolute_window_space);
+        self.update_input(&mut layout, Space::FULL);
+        self.layout_children_in(layout, self.get_canvas_space(absolute_window_space));
     }
 
     fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool {
