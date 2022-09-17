@@ -4,7 +4,15 @@ use super::{
     world::*
 };
 
-use tui::buffer::Cell;
+use tui::{buffer::Cell, style::Style};
+
+use unicode_segmentation::{UnicodeSegmentation, Graphemes};
+use unicode_width::UnicodeWidthStr;
+
+/* 
+ * TODO: allow arbitrary lifetimes for BitShape128, Shap128, BitShape, Shape
+ * Mountable structs that need to store shapes can specify a static lifetime themselves
+ */ 
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct BitShape128 {
@@ -135,6 +143,115 @@ impl Drawable for Shape {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
                 area.buf.content[i] = self.cell.clone();
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DrawableString<'a> {
+    pub lines: Vec<&'a str>,
+    pub size: Size2D
+}
+
+impl<'a> DrawableString<'a> {
+    pub fn new(content: &'a str) -> Self {
+
+        let lines: Vec<&str> = content.lines().collect();
+
+        let height = u16::try_from(lines.len()).unwrap();
+        let mut width: u16 = 0;
+        for &line in lines.iter() {
+            width = width.max(u16::try_from(line.width()).unwrap());
+        }
+
+        DrawableString {
+            lines,
+            size: Size2D::new(width, height)
+        }
+    }
+
+    pub fn iter(&self) -> DrawableStringIterator {
+        DrawableStringIterator { 
+            shape: self, 
+            graphemes: self.lines[0].graphemes(false), 
+            x: 0, 
+            y: 0
+        }
+    }
+}
+
+pub struct DrawableStringIterator<'a> {
+    shape: &'a DrawableString<'a>,
+    graphemes: Graphemes<'a>,
+    x: u16,
+    y: u16
+}
+
+impl<'a> Iterator for DrawableStringIterator<'a> {
+    type Item = (u16, u16, &'a str);
+    fn next(&mut self) -> Option<Self::Item> {
+        let maybe_grapheme = self.graphemes.next();
+
+        if let Some(grapheme) = maybe_grapheme {
+            let result = Some((self.x, self.y, grapheme));
+            self.x += 1;
+            result
+        } else {
+            self.x = 0;
+            self.y += 1;
+            while self.y < self.shape.size.y {
+                self.graphemes = self.shape.lines[self.y as usize].graphemes(false);
+                if let Some(grapheme) = self.graphemes.next() {
+                    let result = Some((self.x, self.y, grapheme));
+                    self.x += 1;
+                    return result;
+                }
+            }
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct StringShape<'a> {
+    pub shape: &'a DrawableString<'a>,
+    pub style: Style,
+    pub layout: DrawLayout
+}
+
+impl<'a> StringShape<'a> {
+    pub fn new(shape: &'a DrawableString, style: Style) -> Self {
+        StringShape { 
+            shape, 
+            style, 
+            layout: DrawLayout::default()
+                .set_size(UDim2::from_size2d(shape.size))
+                .clone() 
+        }
+    }
+}
+
+impl<'a> Layoutable for StringShape<'_> {
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl<'a> Drawable for StringShape<'_> {
+    fn draw(&self, area: WorldArea) {
+        let draw_space = area.draw_space;
+        let full_space = area.full_space;
+        let offset_y = draw_space.position.y - full_space.position.y;
+        let offset_x = draw_space.position.x - full_space.position.x;
+        for y in 0..self.shape.lines.len().min(draw_space.size.y as usize) as i16 {
+            let point = draw_space.absolute_position_of(Point2D::new(0, y as i16));
+            area.buf.set_stringn(
+                point.x as u16, 
+                point.y as u16, 
+                &self.shape.lines[(y + offset_y) as usize][offset_x as usize..], 
+                draw_space.size.x as usize, 
+                self.style
+            );
         }
     }
 }
