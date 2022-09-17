@@ -37,7 +37,13 @@ impl Shape128 {
     }
 }
 
-impl Drawing for Shape128 {
+impl Layoutable for Shape128 {
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl Drawable for Shape128 {
     fn draw(&self, area: WorldArea) {
         for point in area.draw_space {
             let bit_point = area.full_space.relative_position_of(point);
@@ -46,10 +52,6 @@ impl Drawing for Shape128 {
                 area.buf.content[i] = self.cell.clone();
             }
         }
-    }
-
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
     }
 }
 
@@ -118,7 +120,13 @@ impl Shape {
     }
 }
 
-impl Drawing for Shape {
+impl Layoutable for Shape {
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl Drawable for Shape {
     fn draw(&self, area: WorldArea) {
         for point in area.draw_space {
             let bit_point = area.full_space.relative_position_of(point);
@@ -128,9 +136,5 @@ impl Drawing for Shape {
                 area.buf.content[i] = self.cell.clone();
             }
         }
-    }
-
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
     }
 }

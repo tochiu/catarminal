@@ -31,7 +31,7 @@ impl MountFinder {
     }
 }
 
-pub trait Mountable: Drawing + AsTrait + 'static {
+pub trait Mountable: Layoutable + std::fmt::Debug + AsTrait + 'static {
 
     // implement
 

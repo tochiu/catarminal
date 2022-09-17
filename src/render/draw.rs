@@ -8,6 +8,19 @@ use tui::{
     style::Style
 };
 
+pub trait Layoutable {
+    fn layout_ref(&self) -> &DrawLayout;
+}
+
+pub trait Drawable: std::fmt::Debug + Layoutable {
+    fn draw(&self, area: WorldArea);
+}
+
+pub trait StatefulDrawable: std::fmt::Debug + Layoutable {
+    type State;
+    fn stateful_draw(&self, area: WorldArea, state: &Self::State);
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DrawLayout {
     pub space: Space
@@ -41,11 +54,6 @@ impl DrawLayout {
         self.space.anchor = anchor;
         self
     }
-}
-
-pub trait Drawing: std::fmt::Debug {
-    fn draw(&self, area: WorldArea);
-    fn layout_ref(&self) -> &DrawLayout;
 }
 
 pub trait DrawBuffer {

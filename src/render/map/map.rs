@@ -84,14 +84,16 @@ impl Map {
     }
 }
 
-impl Drawing for Map {
+impl Layoutable for Map {
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl Drawable for Map {
     fn draw(&self, mut area: WorldArea) {
         area.buf.draw_lines(&MAP_LINES, area.draw_space, area.full_space, Style::default().fg(Color::White));
         area.draw_children(&self.tiles);
-    }
-
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
     }
 }
 

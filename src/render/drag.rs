@@ -1,12 +1,12 @@
 use super::{
     space::*, 
     mount::{Mountable, Mount}, 
-    draw::{DrawLayout, Drawing}, 
+    draw::{DrawLayout, Drawable, Layoutable}, 
     world::{WorldArea, WorldLayout, WorldInputEvent, WorldInputEventKind}
 };
 
 #[derive(Debug)]
-pub struct Dragger<T: Mountable> {
+pub struct Dragger<T: Mountable + Drawable> {
     pub drawing: T,
     pub layout: DrawLayout,
     mount: Mount,
@@ -14,7 +14,7 @@ pub struct Dragger<T: Mountable> {
     mouse_location: Point2D
 }
 
-impl<T: Mountable> Dragger<T> {
+impl<T: Mountable + Drawable> Dragger<T> {
     pub fn new(drawing: T) -> Self {
         Dragger {
             drawing,
@@ -49,18 +49,20 @@ impl<T: Mountable> Dragger<T> {
     }
 }
 
-impl<T: Mountable> Drawing for Dragger<T> {
-    fn draw(&self, area: WorldArea) {
-        let canvas_space = self.get_canvas_space(area.full_space);
-        area.transform(canvas_space).draw_child(&self.drawing);
-    }
-
+impl<T: Mountable + Drawable> Layoutable for Dragger<T> {
     fn layout_ref(&self) -> &DrawLayout {
         &self.layout
     }
 }
 
-impl<T: Mountable> Mountable for Dragger<T> {
+impl<T: Mountable + Drawable> Drawable for Dragger<T> {
+    fn draw(&self, area: WorldArea) {
+        let canvas_space = self.get_canvas_space(area.full_space);
+        area.transform(canvas_space).draw_child(&self.drawing);
+    }
+}
+
+impl<T: Mountable + Drawable> Mountable for Dragger<T> {
     fn mount_ref(&self) -> &Mount {
         &self.mount
     }

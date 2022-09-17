@@ -161,14 +161,16 @@ impl Tile {
     }
 }
 
-impl Drawing for Tile {
+impl Layoutable for Tile {
+    fn layout_ref(&self) -> &DrawLayout {
+        &self.layout
+    }
+}
+
+impl Drawable for Tile {
     fn draw(&self, mut area: WorldArea) {
         area.draw_child(&self.bkg);
         area.draw_child(&self.rarity);
         area.draw_children(&self.digits);
-    }
-
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
     }
 }

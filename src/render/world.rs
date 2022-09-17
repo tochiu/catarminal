@@ -89,7 +89,7 @@ impl<'a> WorldArea<'a> {
         WorldArea { full_space, ..self }
     }
 
-    pub fn draw_child<T: Drawing>(&mut self, child: &T) {
+    pub fn draw_child<T: Drawable>(&mut self, child: &T) {
         let full_space = child.layout_ref().space.to_absolute_space(self.full_space);
         if !full_space.intersects(self.draw_space) {
             return
@@ -102,7 +102,7 @@ impl<'a> WorldArea<'a> {
         });
     }
 
-    pub fn draw_children<T: Drawing>(&mut self, children: &[T]) {
+    pub fn draw_children<T: Drawable>(&mut self, children: &[T]) {
         for child in children {
             self.draw_child(child);
         }
