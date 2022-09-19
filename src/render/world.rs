@@ -188,7 +188,12 @@ impl WorldInput {
     }
 
     pub fn update(&mut self, id: MountId, space: AbsoluteSpace) {
-        self.inputs.push(Input { id, space });
+        if self.valid_input_count == self.inputs.len() {
+            self.inputs.push(Input { id, space });
+        } else {
+            self.inputs[self.valid_input_count] = Input { id, space };
+        }
+        
         self.valid_input_count += 1;
     }
 
@@ -196,7 +201,7 @@ impl WorldInput {
         for input in self.inputs.iter().rev() {
             let id = input.id;
             let space = input.space;
-            if point.x >= space.left() && point.x < space.right() && point.y >= space.top() && point.y < space.bottom() {
+            if space.is_interior_point(point) {
                 return Some(id);
             }
         }
@@ -204,7 +209,7 @@ impl WorldInput {
         None
     }
 
-    pub fn handle_mouse_input(&mut self, event: MouseEvent, root_mount: &mut dyn MountableLayout) -> bool {
+    pub fn handle_mouse_input(&mut self, event: MouseEvent, root: &mut WorldRoot) -> bool {
         let point = Point2D::new(
             i16::try_from(event.column).unwrap(), 
             i16::try_from(event.row).unwrap()
@@ -281,13 +286,15 @@ impl WorldInput {
             _ => ()
         }
 
-        let mut should_redraw = false;
+        let mut should_rerender = false;
         for input_event in self.input_event_queue.drain(..) {
-            if let Some(descendant) = root_mount.find_descendant_mut(MountFinder::new(input_event.mount_id)) {
-                should_redraw = should_redraw || descendant.on_mouse_input(input_event);
+            if let Some(descendant) = root.find_descendant_mut(MountFinder::new(input_event.mount_id)) {
+                // call on separate line because we dont want short-circuiting to prevent descendant mouse input handler from running
+                let descendant_requires_rerender = descendant.on_mouse_input(input_event);
+                should_rerender = should_rerender || descendant_requires_rerender;
             }
         }
 
-        should_redraw
+        should_rerender
     }
 }

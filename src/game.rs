@@ -10,7 +10,6 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use log::info;
 use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use std::{io, time::Duration};
 use tui::{
@@ -61,8 +60,10 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                     }
                 },
                 Event::Mouse(event) => {
-                    info!("mouse event: {:?}", event);
-                    should_render = should_render || world.input.handle_mouse_input(event, &mut world.root);
+                    log::info!("mouse event: {:?}", event);
+                    // call on separate line because we dont want short-circuiting to prevent mouse input handler from running
+                    let input_requires_rerender = world.input.handle_mouse_input(event, &mut world.root); 
+                    should_render = should_render || input_requires_rerender;
                 }
             }
         }
