@@ -25,7 +25,7 @@ const DIGITS: [BitShape128; 10] = [
     BitShape128::new(0b0111010001011110000101110, Size2D::new(5, 5))
 ];
 
-const TILE_SIZE: Size2D = Size2D::new(25, 11);
+pub const TILE_SIZE: Size2D = Size2D::new(25, 11);
 
 lazy_static! {
 

@@ -1,6 +1,6 @@
 use crate::{
     render::{
-        map::{Map, Tile}, 
+        map::{self, Map, Tile}, 
         world::World
     }
 };
@@ -21,9 +21,8 @@ use tui::{
 use rand::Rng;
 
 pub fn run(enable_logger: bool) -> Result<(), io::Error> {
-
     let mut rng = rand::thread_rng();
-    let mut tiles: Vec<Tile> = Vec::with_capacity(Map::get_tile_capacity());
+    let mut tiles: Vec<Tile> = Vec::with_capacity(*map::MAP_TILE_CAPACITY);
     
     for _ in 0..tiles.capacity() {
         let roll: u8 = rng.gen_range(2..12);
