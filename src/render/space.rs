@@ -1,7 +1,8 @@
 use std::cmp::{max, min};
+use std::ops::Add;
 use tui::layout::Rect;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Point2D {
     pub x: i16,
     pub y: i16
@@ -13,10 +14,30 @@ impl Point2D {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+impl Add<Point2D> for Point2D {
+    type Output = Point2D;
+    fn add(self, rhs: Point2D) -> Point2D {
+        Point2D { 
+            x: self.x.checked_add(rhs.x).unwrap(), 
+            y: self.y.checked_add(rhs.y).unwrap()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Size2D {
     pub x: u16,
     pub y: u16
+}
+
+impl Add<Size2D> for Size2D {
+    type Output = Size2D;
+    fn add(self, rhs: Size2D) -> Size2D {
+        Size2D { 
+            x: self.x.checked_add(rhs.x).unwrap(), 
+            y: self.y.checked_add(rhs.y).unwrap()
+        }
+    }
 }
 
 impl Size2D {
@@ -88,7 +109,7 @@ impl UDim2 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct AbsoluteSpace {
     pub size: Size2D,
     pub position: Point2D
@@ -167,6 +188,10 @@ impl AbsoluteSpace {
             x: absolute_position.x.checked_sub(self.position.x).unwrap(),
             y: absolute_position.y.checked_sub(self.position.y).unwrap()
         }
+    }
+
+    pub fn is_interior_point(self, point: Point2D) -> bool {
+        point.x >= self.left() && point.x < self.right() && point.y >= self.top() && point.y < self.bottom()
     }
 }
 
