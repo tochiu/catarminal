@@ -31,14 +31,14 @@ impl MountFinder {
     }
 }
 
-pub trait Mountable: Layoutable + std::fmt::Debug + AsTrait + 'static {
+pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
 
     // implement
 
     fn mount_ref(&self) -> &Mount;
     fn mount_mut(&mut self) -> &mut Mount;
-    fn child_ref(&self, i: usize) -> Option<&dyn Mountable>;
-    fn child_mut(&mut self, i: usize) -> Option<&mut dyn Mountable>;
+    fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout>;
+    fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout>;
 
     // event handlers
 
@@ -70,14 +70,13 @@ pub trait Mountable: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
-    fn find_descendant_ref(&self, finder: MountFinder) -> Option<&dyn Mountable> {
+    fn find_descendant_ref(&self, finder: MountFinder) -> Option<&dyn MountableLayout> {
         let index = finder.peek();
 
         if index == 0 {
             Some(self.as_trait_ref())
         } else {
-            let maybe_child = self.child_ref(index as usize - 1);
-            if let Some(child) = maybe_child {
+            if let Some(child) = self.child_ref(index as usize - 1) {
                 child.find_descendant_ref(finder.next())
             } else {
                 None
@@ -85,14 +84,13 @@ pub trait Mountable: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
-    fn find_descendant_mut(&mut self, finder: MountFinder) -> Option<&mut dyn Mountable> {
+    fn find_descendant_mut(&mut self, finder: MountFinder) -> Option<&mut dyn MountableLayout> {
         let index = finder.peek();
 
         if index == 0 {
             Some(self.as_trait_mut())
         } else {
-            let maybe_child = self.child_mut(index as usize - 1);
-            if let Some(child) = maybe_child {
+            if let Some(child) = self.child_mut(index as usize - 1) {
                 child.find_descendant_mut(finder.next())
             } else {
                 None
@@ -100,60 +98,53 @@ pub trait Mountable: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
-    fn layout(&mut self, layout: WorldLayout) {
-        self.layout_children(layout);
+    fn relayout(&mut self, relayout: WorldRelayout) {
+        self.relayout_children(relayout);
     }
 
-    fn layout_children(&mut self, layout: WorldLayout) {
-        let canvas_space = layout.parent_full_space;
-        self.layout_children_in(layout, self.layout_ref().space.to_absolute_space(canvas_space));
+    fn relayout_children(&mut self, relayout: WorldRelayout) {
+        let transformed_absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
+        self.relayout_children_in(relayout, transformed_absolute_layout_space);
     }
 
-    fn layout_children_in(&mut self, layout: WorldLayout, canvas_space: AbsoluteSpace) {
-        let full_space = self.layout_ref().space.to_absolute_space(layout.parent_full_space);
-        if !full_space.intersects(layout.parent_draw_space) {
-            return
-        }
-
-        let draw_space = full_space.intersection(layout.parent_draw_space);
-
-        let mut itr = self.child_iter_mut();
-        while let Some(child) = itr.next() {
-            child.layout(WorldLayout {
-                id: child.mount_ref().id,
-                calculated_space: child.layout_ref().space.to_absolute_space(canvas_space),
-                parent_draw_space: draw_space,
-                parent_full_space: canvas_space,
-                input: layout.input
-            });
+    fn relayout_children_in(&mut self, relayout: WorldRelayout, transformed_absolute_layout_space: AbsoluteSpace) {
+        let absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
+        if let Some(absolute_draw_space) = relayout.restrict_absolute_layout_space(absolute_layout_space) {
+            let mut itr = self.child_iter_mut();
+            while let Some(child) = itr.next() {
+                child.relayout(WorldRelayout {
+                    id: child.mount_ref().id,
+                    absolute_layout_space: child.to_absolute_layout_space(transformed_absolute_layout_space),
+                    parent_absolute_draw_space: absolute_draw_space,
+                    parent_absolute_layout_space: transformed_absolute_layout_space,
+                    input: relayout.input
+                });
+            }
         }
     }
 
-    fn update_input(&mut self, layout: &mut WorldLayout, input_space: Space) {
-        let full_space = self.layout_ref().space.to_absolute_space(layout.parent_full_space);
-        if !full_space.intersects(layout.parent_draw_space) {
-            return
+    fn relayout_input_space(&mut self, relayout: &mut WorldRelayout, input_space: Space) {
+        let absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
+        if let Some(absolute_draw_space) = relayout.restrict_absolute_layout_space(absolute_layout_space) {
+            if let Some(input_absolute_interactable_space) = 
+                input_space
+                    .to_absolute_space(absolute_layout_space)
+                    .try_intersection(absolute_draw_space) 
+            {
+                relayout.input.update(relayout.id, input_absolute_interactable_space);
+            }
         }
-
-        let draw_space = full_space.intersection(layout.parent_draw_space);
-
-        let input_full_space = input_space.to_absolute_space(full_space);
-        if !input_full_space.intersects(draw_space) {
-            return
-        }
-
-        layout.input.update(layout.id, input_full_space.intersection(draw_space));
     }
 }
 
 pub trait AsTrait {
-    fn as_trait_ref(&self) -> &dyn Mountable;
-    fn as_trait_mut(&mut self) -> &mut dyn Mountable;
+    fn as_trait_ref(&self) -> &dyn MountableLayout;
+    fn as_trait_mut(&mut self) -> &mut dyn MountableLayout;
 }
 
-impl<T: Mountable + Sized> AsTrait for T {
-    fn as_trait_ref(&self) -> &dyn Mountable { self }
-    fn as_trait_mut(&mut self) -> &mut dyn Mountable { self }
+impl<T: MountableLayout + Sized> AsTrait for T {
+    fn as_trait_ref(&self) -> &dyn MountableLayout { self }
+    fn as_trait_mut(&mut self) -> &mut dyn MountableLayout { self }
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -173,12 +164,12 @@ impl Mount {
 }
 
 pub struct MountChildIter<'a> {
-    drawing: &'a dyn Mountable,
+    drawing: &'a dyn MountableLayout,
     index: usize
 }
 
 impl<'a> CustomIterator for MountChildIter<'a> {
-    type Item = RefFamily<dyn Mountable>;
+    type Item = RefFamily<dyn MountableLayout>;
 
     fn next<'s>(&'s mut self) -> Option<<Self::Item as FamilyLt<'s>>::Out> {
         let maybe_child = self.drawing.child_ref(self.index);
@@ -188,12 +179,12 @@ impl<'a> CustomIterator for MountChildIter<'a> {
 }
 
 pub struct MountChildIterMut<'a> {
-    drawing: &'a mut dyn Mountable,
+    drawing: &'a mut dyn MountableLayout,
     index: usize
 }
 
 impl<'a> CustomIterator for MountChildIterMut<'a> {
-    type Item = MutRefFamily<dyn Mountable>;
+    type Item = MutRefFamily<dyn MountableLayout>;
 
     fn next<'s>(&'s mut self) -> Option<<Self::Item as FamilyLt<'s>>::Out> {
         let maybe_child = self.drawing.child_mut(self.index);

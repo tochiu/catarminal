@@ -13,15 +13,17 @@ use tui::{
     widgets::Widget
 };
 
+pub type WorldRoot = Dragger<Map>;
+
 #[derive(Debug)]
 pub struct World {
-    pub root: Dragger<Map>,
+    pub root: WorldRoot,
     pub input: WorldInput
 }
 
 impl World {
     pub fn new(map: Map) -> Self {
-        let mut root = Dragger::new(map);
+        let mut root = WorldRoot::new(map);
         root.mount(Mount {
             id: 0,
             children: 0
@@ -38,6 +40,28 @@ impl World {
             world: self
         }
     }
+
+    fn relayout_root(&mut self, absolute_world_space: AbsoluteSpace) {
+        self.root.relayout(WorldRelayout {
+            id: self.root.mount_ref().id,
+            absolute_layout_space: self.root.to_absolute_layout_space(absolute_world_space),
+            parent_absolute_draw_space: absolute_world_space,
+            parent_absolute_layout_space: absolute_world_space,
+            input: &mut self.input
+        });
+    }
+
+    fn draw_root(&self, absolute_world_space: AbsoluteSpace, buf: &mut Buffer, state: &<WorldRoot as StatefulDrawable>::State) {
+        WorldArea::draw_stateful_child(
+            &mut WorldArea {
+                absolute_draw_space: absolute_world_space,
+                absolute_layout_space: absolute_world_space,
+                buf
+            }, 
+            &self.root, 
+            state
+        );
+    }
 }
 
 pub struct WorldWidget<'a> {
@@ -46,65 +70,80 @@ pub struct WorldWidget<'a> {
 
 impl<'a> Widget for WorldWidget<'a> {
     fn render(self, rect: Rect, buf: &mut Buffer) {
-        let rect_space = AbsoluteSpace::from_rect(rect);
+        let absolute_world_space = AbsoluteSpace::from_rect(rect);
 
         self.world.input.invalidate_all_inputs();
-        self.world.root.layout(WorldLayout {
-            id: self.world.root.mount_ref().id,
-            calculated_space: self.world.root.layout_ref().space.to_absolute_space(rect_space),
-            parent_draw_space: rect_space,
-            parent_full_space: rect_space,
-            input: &mut self.world.input
-        });
+        self.world.relayout_root(absolute_world_space);
         self.world.input.clear_invalid_inputs();
-
-        let mut canvas = WorldArea {
-            draw_space: rect_space,
-            full_space: rect_space,
-            buf
-        };
-
-        canvas.draw_child(&self.world.root);
+        self.world.draw_root(absolute_world_space, buf, &NoDrawState);
     }
 }
 
 #[derive(Debug)]
-pub struct WorldLayout<'a> {
+pub struct WorldRelayout<'a> {
     pub id: MountId,
-    pub calculated_space: AbsoluteSpace,
-    pub parent_draw_space: AbsoluteSpace,
-    pub parent_full_space: AbsoluteSpace,
+    pub absolute_layout_space: AbsoluteSpace,
+    pub parent_absolute_draw_space: AbsoluteSpace,
+    pub parent_absolute_layout_space: AbsoluteSpace,
     pub input: &'a mut WorldInput
+}
+
+impl<'a> WorldRelayout<'a> {
+    /*
+     * Restricts space of the given Layoutable to not exceed the bounds of the parent's absolute draw space
+     * Returns Option because the restrictions could lead to no drawable space (layout out of bounds of parent drawing space)
+     */
+    pub fn restrict_absolute_layout_space(&self, subarea_absolute_layout_space: AbsoluteSpace) -> Option<AbsoluteSpace> {
+        self.parent_absolute_draw_space.try_intersection(subarea_absolute_layout_space)
+    }
 }
 
 #[derive(Debug)]
 pub struct WorldArea<'a> {
-    pub draw_space: AbsoluteSpace,
-    pub full_space: AbsoluteSpace,
+    pub absolute_draw_space: AbsoluteSpace,
+    pub absolute_layout_space: AbsoluteSpace,
     pub buf: &'a mut Buffer
 }
 
 impl<'a> WorldArea<'a> {
-    pub fn transform(self, full_space: AbsoluteSpace) -> WorldArea<'a> {
-        WorldArea { full_space, ..self }
+    pub fn transform(self, absolute_layout_space: AbsoluteSpace) -> WorldArea<'a> {
+        WorldArea { absolute_layout_space, ..self }
     }
 
     pub fn draw_child<T: Drawable>(&mut self, child: &T) {
-        let full_space = child.layout_ref().space.to_absolute_space(self.full_space);
-        if !full_space.intersects(self.draw_space) {
-            return
+        let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
+        if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
+            child.draw(WorldArea {
+                absolute_draw_space: subarea_absolute_draw_space,
+                absolute_layout_space: subarea_absolute_layout_space,
+                buf: self.buf
+            });
         }
-        
-        child.draw(WorldArea {
-            draw_space: full_space.intersection(self.draw_space),
-            full_space,
-            buf: self.buf
-        });
     }
 
     pub fn draw_children<T: Drawable>(&mut self, children: &[T]) {
         for child in children {
             self.draw_child(child);
+        }
+    }
+
+    pub fn draw_stateful_child<T: StatefulDrawable>(&mut self, child: &T, state: &T::State) {
+        let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
+        if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
+            child.stateful_draw(
+                WorldArea {
+                    absolute_draw_space: subarea_absolute_draw_space,
+                    absolute_layout_space: subarea_absolute_layout_space,
+                    buf: self.buf
+                },
+                state
+            );
+        }
+    }
+
+    pub fn draw_stateful_children<T: StatefulDrawable>(&mut self, children: &[T], states: &[T::State]) {
+        for (child, state) in std::iter::zip(children, states) {
+            self.draw_stateful_child(child, state);
         }
     }
 }
@@ -165,7 +204,7 @@ impl WorldInput {
         None
     }
 
-    pub fn handle_mouse_input(&mut self, event: MouseEvent, root_mount: &mut dyn Mountable) -> bool {
+    pub fn handle_mouse_input(&mut self, event: MouseEvent, root_mount: &mut dyn MountableLayout) -> bool {
         let point = Point2D::new(
             i16::try_from(event.column).unwrap(), 
             i16::try_from(event.row).unwrap()

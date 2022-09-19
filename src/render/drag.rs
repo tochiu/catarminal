@@ -1,12 +1,12 @@
 use super::{
     space::*, 
-    mount::{Mountable, Mount}, 
-    draw::{DrawLayout, Drawable, Layoutable}, 
-    world::{WorldArea, WorldLayout, WorldInputEvent, WorldInputEventKind}
+    mount::{MountableLayout, Mount}, 
+    draw::{DrawLayout, StatefulDrawable, Layoutable}, 
+    world::{WorldArea, WorldRelayout, WorldInputEvent, WorldInputEventKind}
 };
 
 #[derive(Debug)]
-pub struct Dragger<T: Mountable + Drawable> {
+pub struct Dragger<T: MountableLayout + StatefulDrawable> {
     pub drawing: T,
     pub layout: DrawLayout,
     mount: Mount,
@@ -14,7 +14,7 @@ pub struct Dragger<T: Mountable + Drawable> {
     mouse_location: Point2D
 }
 
-impl<T: Mountable + Drawable> Dragger<T> {
+impl<T: MountableLayout + StatefulDrawable> Dragger<T> {
     pub fn new(drawing: T) -> Self {
         Dragger {
             drawing,
@@ -39,7 +39,7 @@ impl<T: Mountable + Drawable> Dragger<T> {
         )
     }
 
-    fn get_canvas_space(&self, window_space: AbsoluteSpace) -> AbsoluteSpace {
+    fn get_absolute_canvas_space(&self, window_space: AbsoluteSpace) -> AbsoluteSpace {
         AbsoluteSpace::new(
             window_space.position.x.saturating_sub(self.canvas_offset.x), 
             window_space.position.y.saturating_sub(self.canvas_offset.y), 
@@ -49,20 +49,21 @@ impl<T: Mountable + Drawable> Dragger<T> {
     }
 }
 
-impl<T: Mountable + Drawable> Layoutable for Dragger<T> {
+impl<T: MountableLayout + StatefulDrawable> Layoutable for Dragger<T> {
     fn layout_ref(&self) -> &DrawLayout {
         &self.layout
     }
 }
 
-impl<T: Mountable + Drawable> Drawable for Dragger<T> {
-    fn draw(&self, area: WorldArea) {
-        let canvas_space = self.get_canvas_space(area.full_space);
-        area.transform(canvas_space).draw_child(&self.drawing);
+impl<T: MountableLayout + StatefulDrawable> StatefulDrawable for Dragger<T> {
+    type State = T::State;
+    fn stateful_draw(&self, area: WorldArea, state: &Self::State) {
+        let canvas_space = self.get_absolute_canvas_space(area.absolute_layout_space);
+        area.transform(canvas_space).draw_stateful_child(&self.drawing, state);
     }
 }
 
-impl<T: Mountable + Drawable> Mountable for Dragger<T> {
+impl<T: MountableLayout + StatefulDrawable> MountableLayout for Dragger<T> {
     fn mount_ref(&self) -> &Mount {
         &self.mount
     }
@@ -71,25 +72,25 @@ impl<T: Mountable + Drawable> Mountable for Dragger<T> {
         &mut self.mount
     }
 
-    fn child_ref(&self, i: usize) -> Option<&dyn Mountable> {
+    fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout> {
         match i {
             0 => Some(self.drawing.as_trait_ref()),
             _ => None
         }
     }
 
-    fn child_mut(&mut self, i: usize) -> Option<&mut dyn Mountable> {
+    fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout> {
         match i {
             0 => Some(self.drawing.as_trait_mut()),
             _ => None
         }
     }
 
-    fn layout(&mut self, mut layout: WorldLayout) {
-        let absolute_window_space = layout.calculated_space;
+    fn relayout(&mut self, mut relayout: WorldRelayout) {
+        let absolute_window_space = relayout.absolute_layout_space;
         self.canvas_offset = self.get_constrained_canvas_offset(absolute_window_space);
-        self.update_input(&mut layout, Space::FULL);
-        self.layout_children_in(layout, self.get_canvas_space(absolute_window_space));
+        self.relayout_input_space(&mut relayout, Space::FULL);
+        self.relayout_children_in(relayout, self.get_absolute_canvas_space(absolute_window_space));
     }
 
     fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool {

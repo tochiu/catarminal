@@ -3,8 +3,13 @@ use super::{
     world::*
 };
 
+pub struct NoDrawState;
+
 pub trait Layoutable {
     fn layout_ref(&self) -> &DrawLayout;
+    fn to_absolute_layout_space(&self, parent_absolute_space: AbsoluteSpace) -> AbsoluteSpace {
+        self.layout_ref().space.to_absolute_space(parent_absolute_space)
+    }
 }
 
 pub trait Drawable: std::fmt::Debug + Layoutable {

@@ -222,9 +222,16 @@ impl Drawable for Map {
     }
 }
 
-impl Mountable for Map {
+impl StatefulDrawable for Map {
+    type State = NoDrawState;
+    fn stateful_draw(&self, area: WorldArea, _: &Self::State) {
+        self.draw(area);
+    }
+}
+
+impl MountableLayout for Map {
     fn mount_ref(&self) -> &Mount { &self.mount }
     fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
-    fn child_ref(&self, _: usize) -> Option<&dyn Mountable> { None }
-    fn child_mut(&mut self, _: usize) -> Option<&mut dyn Mountable> { None }
+    fn child_ref(&self, _: usize) -> Option<&dyn MountableLayout> { None }
+    fn child_mut(&mut self, _: usize) -> Option<&mut dyn MountableLayout> { None }
 }

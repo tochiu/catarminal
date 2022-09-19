@@ -169,6 +169,14 @@ impl AbsoluteSpace {
         )
     }
 
+    pub fn try_intersection(self, other: AbsoluteSpace) -> Option<AbsoluteSpace> {
+        if self.intersects(other) {
+            Some(self.intersection(other))
+        } else {
+            None
+        }
+    }
+
     pub fn intersects(self, other: AbsoluteSpace) -> bool {
         self.left() < other.right()
             && self.right() > other.left()

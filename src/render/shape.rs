@@ -11,7 +11,7 @@ use unicode_width::UnicodeWidthStr;
 
 /* 
  * TODO: allow arbitrary lifetimes for BitShape128, Shap128, BitShape, Shape
- * Mountable structs that need to store shapes can specify a static lifetime themselves
+ * MountableLayout structs that need to store shapes can specify a static lifetime themselves
  */ 
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -53,8 +53,8 @@ impl Layoutable for Shape128 {
 
 impl Drawable for Shape128 {
     fn draw(&self, area: WorldArea) {
-        for point in area.draw_space {
-            let bit_point = area.full_space.relative_position_of(point);
+        for point in area.absolute_draw_space {
+            let bit_point = area.absolute_layout_space.relative_position_of(point);
             if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
                 area.buf.content[i] = self.cell.clone();
@@ -136,8 +136,8 @@ impl Layoutable for Shape {
 
 impl Drawable for Shape {
     fn draw(&self, area: WorldArea) {
-        for point in area.draw_space {
-            let bit_point = area.full_space.relative_position_of(point);
+        for point in area.absolute_draw_space {
+            let bit_point = area.absolute_layout_space.relative_position_of(point);
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
             if self.shape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
@@ -239,17 +239,17 @@ impl<'a> Layoutable for StringShape<'_> {
 
 impl<'a> Drawable for StringShape<'_> {
     fn draw(&self, area: WorldArea) {
-        let draw_space = area.draw_space;
-        let full_space = area.full_space;
-        let offset_y = draw_space.position.y - full_space.position.y;
-        let offset_x = draw_space.position.x - full_space.position.x;
-        for y in 0..self.shape.lines.len().min(draw_space.size.y as usize) as i16 {
-            let point = draw_space.absolute_position_of(Point2D::new(0, y as i16));
+        let absolute_draw_space = area.absolute_draw_space;
+        let absolute_layout_space = area.absolute_layout_space;
+        let offset_y = absolute_draw_space.position.y - absolute_layout_space.position.y;
+        let offset_x = absolute_draw_space.position.x - absolute_layout_space.position.x;
+        for y in 0..self.shape.lines.len().min(absolute_draw_space.size.y as usize) as i16 {
+            let point = absolute_draw_space.absolute_position_of(Point2D::new(0, y as i16));
             area.buf.set_stringn(
                 point.x as u16, 
                 point.y as u16, 
                 &self.shape.lines[(y + offset_y) as usize][offset_x as usize..], 
-                draw_space.size.x as usize, 
+                absolute_draw_space.size.x as usize, 
                 self.style
             );
         }
