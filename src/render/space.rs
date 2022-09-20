@@ -271,14 +271,14 @@ impl Space {
         Space::new(size, UDim2::new(0.0, 0, 0.0, 0), Scale2D::new(0.0, 0.0))
     }
 
-    pub fn to_absolute_space(self, world: AbsoluteSpace) -> AbsoluteSpace {
-        let sizex = (world.size.x as f32)*self.size.x.scale + self.size.x.offset as f32;
-        let sizey = (world.size.y as f32)*self.size.y.scale + self.size.y.offset as f32;
+    pub fn to_absolute_space(self, screen: AbsoluteSpace) -> AbsoluteSpace {
+        let sizex = (screen.size.x as f32)*self.size.x.scale + self.size.x.offset as f32;
+        let sizey = (screen.size.y as f32)*self.size.y.scale + self.size.y.offset as f32;
         let sizex_abs = sizex.abs();
         let sizey_abs = sizey.abs();
 
-        let posx = world.position.x as f32 + ((world.size.x).saturating_sub(1) as f32)*self.position.x.scale + self.position.x.offset as f32;
-        let posy = world.position.y as f32 + ((world.size.y).saturating_sub(1) as f32)*self.position.y.scale + self.position.y.offset as f32;
+        let posx = screen.position.x as f32 + ((screen.size.x).saturating_sub(1) as f32)*self.position.x.scale + self.position.x.offset as f32;
+        let posy = screen.position.y as f32 + ((screen.size.y).saturating_sub(1) as f32)*self.position.y.scale + self.position.y.offset as f32;
         let anchorx = (sizex_abs - 1.0).max(0.0).copysign(sizex)*self.anchor.x;
         let anchory = (sizey_abs - 1.0).max(0.0).copysign(sizey)*self.anchor.y;
 

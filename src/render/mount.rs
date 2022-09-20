@@ -1,6 +1,6 @@
 use super::{
     draw::*, 
-    world::*, 
+    screen::*, 
     space::*
 };
 
@@ -43,7 +43,7 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
     // event handlers
 
     #[allow(unused_variables)]
-    fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool { false }
+    fn on_mouse_input(&mut self, event: ScreenInputEvent) -> bool { false }
     
     // required / utility
 
@@ -98,21 +98,21 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
-    fn relayout(&mut self, relayout: WorldRelayout) {
+    fn relayout(&mut self, relayout: ScreenRelayout) {
         self.relayout_children(relayout);
     }
 
-    fn relayout_children(&mut self, relayout: WorldRelayout) {
+    fn relayout_children(&mut self, relayout: ScreenRelayout) {
         let transformed_absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
         self.relayout_children_in(relayout, transformed_absolute_layout_space);
     }
 
-    fn relayout_children_in(&mut self, relayout: WorldRelayout, transformed_absolute_layout_space: AbsoluteSpace) {
+    fn relayout_children_in(&mut self, relayout: ScreenRelayout, transformed_absolute_layout_space: AbsoluteSpace) {
         let absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
         if let Some(absolute_draw_space) = relayout.restrict_absolute_layout_space(absolute_layout_space) {
             let mut itr = self.child_iter_mut();
             while let Some(child) = itr.next() {
-                child.relayout(WorldRelayout {
+                child.relayout(ScreenRelayout {
                     id: child.mount_ref().id,
                     absolute_layout_space: child.to_absolute_layout_space(transformed_absolute_layout_space),
                     parent_absolute_draw_space: absolute_draw_space,
@@ -123,7 +123,7 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
-    fn relayout_input_space(&mut self, relayout: &mut WorldRelayout, input_space: Space) {
+    fn relayout_input_space(&mut self, relayout: &mut ScreenRelayout, input_space: Space) {
         let absolute_layout_space = self.to_absolute_layout_space(relayout.parent_absolute_layout_space);
         if let Some(absolute_draw_space) = relayout.restrict_absolute_layout_space(absolute_layout_space) {
             if let Some(input_absolute_interactable_space) = 

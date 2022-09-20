@@ -3,7 +3,7 @@ use super::{
     map::Map, 
     draw::*,
     mount::*,
-    world::*, 
+    screen::*, 
     space::*
 };
 
@@ -48,7 +48,7 @@ impl Layoutable for Game {
 
 impl StatefulDrawable for Game {
     type State = NoDrawState;
-    fn stateful_draw(&self, mut area: WorldArea, state: &Self::State) {
+    fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
         area.draw_widget(
             Block::default()
                 .title(" Map ")
@@ -98,7 +98,7 @@ impl MountableLayout for Game {
         } 
     }
 
-    fn relayout(&mut self, relayout: WorldRelayout) {
+    fn relayout(&mut self, relayout: ScreenRelayout) {
         let space = relayout.absolute_layout_space.to_rect();
         let rects = Layout::default()
             .direction(Direction::Horizontal)

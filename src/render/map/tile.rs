@@ -2,7 +2,7 @@ use super::super::{
     shape::*,
     draw::*,
     space::*,
-    world::*
+    screen::*
 };
 
 use crate::enums;
@@ -168,7 +168,7 @@ impl Layoutable for Tile {
 }
 
 impl Drawable for Tile {
-    fn draw(&self, mut area: WorldArea) {
+    fn draw(&self, mut area: ScreenArea) {
         area.draw_child(&self.bkg);
         area.draw_child(&self.rarity);
         area.draw_children(&self.digits);

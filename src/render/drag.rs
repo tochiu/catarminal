@@ -2,7 +2,7 @@ use super::{
     space::*, 
     mount::{MountableLayout, Mount}, 
     draw::{DrawLayout, StatefulDrawable, Layoutable}, 
-    world::{WorldArea, WorldRelayout, WorldInputEvent, WorldInputEventKind}
+    screen::{ScreenArea, ScreenRelayout, ScreenInputEvent, ScreenInputEventKind}
 };
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ impl<T: MountableLayout + StatefulDrawable> Layoutable for Dragger<T> {
 
 impl<T: MountableLayout + StatefulDrawable> StatefulDrawable for Dragger<T> {
     type State = T::State;
-    fn stateful_draw(&self, area: WorldArea, state: &Self::State) {
+    fn stateful_draw(&self, area: ScreenArea, state: &Self::State) {
         let canvas_space = self.get_absolute_canvas_space(area.absolute_layout_space);
         area.transform(canvas_space).draw_stateful_child(&self.drawing, state);
     }
@@ -86,20 +86,20 @@ impl<T: MountableLayout + StatefulDrawable> MountableLayout for Dragger<T> {
         }
     }
 
-    fn relayout(&mut self, mut relayout: WorldRelayout) {
+    fn relayout(&mut self, mut relayout: ScreenRelayout) {
         let absolute_window_space = relayout.absolute_layout_space;
         self.canvas_offset = self.get_constrained_canvas_offset(absolute_window_space);
         self.relayout_input_space(&mut relayout, Space::FULL);
         self.relayout_children_in(relayout, self.get_absolute_canvas_space(absolute_window_space));
     }
 
-    fn on_mouse_input(&mut self, event: WorldInputEvent) -> bool {
+    fn on_mouse_input(&mut self, event: ScreenInputEvent) -> bool {
         match event.kind {
-            WorldInputEventKind::Down(point) => {
+            ScreenInputEventKind::Down(point) => {
                 self.mouse_location = point;
                 false
             },
-            WorldInputEventKind::Drag(point) => {
+            ScreenInputEventKind::Drag(point) => {
                 let canvas_offset = Point2D::new(
                     self.canvas_offset.x.saturating_sub(point.x.saturating_sub(self.mouse_location.x)),
                     self.canvas_offset.y.saturating_sub(point.y.saturating_sub(self.mouse_location.y))

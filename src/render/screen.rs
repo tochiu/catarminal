@@ -12,42 +12,42 @@ use tui::{
 };
 
 #[derive(Debug)]
-pub struct World<T: MountableLayout + StatefulDrawable> {
+pub struct Screen<T: MountableLayout + StatefulDrawable> {
     pub root: T,
-    pub input: WorldInput
+    pub input: ScreenInput
 }
 
-impl<T: MountableLayout + StatefulDrawable> World<T> {
+impl<T: MountableLayout + StatefulDrawable> Screen<T> {
     pub fn new(mut root: T) -> Self {
         root.mount(Mount::default());
 
-        World {
+        Screen {
             root,
-            input: WorldInput::default()
+            input: ScreenInput::default()
         }
     }
 
-    pub fn as_widget(&mut self) -> WorldWidget<T> {
-        WorldWidget {
-            world: self
+    pub fn as_widget(&mut self) -> ScreenWidget<T> {
+        ScreenWidget {
+            screen: self
         }
     }
 
-    fn relayout_root(&mut self, absolute_world_space: AbsoluteSpace) {
-        self.root.relayout(WorldRelayout {
+    fn relayout_root(&mut self, absolute_screen_space: AbsoluteSpace) {
+        self.root.relayout(ScreenRelayout {
             id: self.root.mount_ref().id,
-            absolute_layout_space: self.root.to_absolute_layout_space(absolute_world_space),
-            parent_absolute_draw_space: absolute_world_space,
-            parent_absolute_layout_space: absolute_world_space,
+            absolute_layout_space: self.root.to_absolute_layout_space(absolute_screen_space),
+            parent_absolute_draw_space: absolute_screen_space,
+            parent_absolute_layout_space: absolute_screen_space,
             input: &mut self.input
         });
     }
 
-    fn draw_root(&self, absolute_world_space: AbsoluteSpace, buf: &mut Buffer, state: &<T as StatefulDrawable>::State) {
-        WorldArea::draw_stateful_child(
-            &mut WorldArea {
-                absolute_draw_space: absolute_world_space,
-                absolute_layout_space: absolute_world_space,
+    fn draw_root(&self, absolute_screen_space: AbsoluteSpace, buf: &mut Buffer, state: &<T as StatefulDrawable>::State) {
+        ScreenArea::draw_stateful_child(
+            &mut ScreenArea {
+                absolute_draw_space: absolute_screen_space,
+                absolute_layout_space: absolute_screen_space,
                 buf
             }, 
             &self.root, 
@@ -56,32 +56,32 @@ impl<T: MountableLayout + StatefulDrawable> World<T> {
     }
 }
 
-pub struct WorldWidget<'a, T: MountableLayout + StatefulDrawable> {
-    world: &'a mut World<T>
+pub struct ScreenWidget<'a, T: MountableLayout + StatefulDrawable> {
+    screen: &'a mut Screen<T>
 }
 
-impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for WorldWidget<'a, T> {
+impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for ScreenWidget<'a, T> {
     type State = T::State;
     fn render(self, rect: Rect, buf: &mut Buffer, state: &mut T::State) {
-        let absolute_world_space = AbsoluteSpace::from_rect(rect);
+        let absolute_screen_space = AbsoluteSpace::from_rect(rect);
 
-        self.world.input.invalidate_all_inputs();
-        self.world.relayout_root(absolute_world_space);
-        self.world.input.clear_invalid_inputs();
-        self.world.draw_root(absolute_world_space, buf, &state);
+        self.screen.input.invalidate_all_inputs();
+        self.screen.relayout_root(absolute_screen_space);
+        self.screen.input.clear_invalid_inputs();
+        self.screen.draw_root(absolute_screen_space, buf, &state);
     }
 }
 
 #[derive(Debug)]
-pub struct WorldRelayout<'a> {
+pub struct ScreenRelayout<'a> {
     pub id: MountId,
     pub absolute_layout_space: AbsoluteSpace,
     pub parent_absolute_draw_space: AbsoluteSpace,
     pub parent_absolute_layout_space: AbsoluteSpace,
-    pub input: &'a mut WorldInput
+    pub input: &'a mut ScreenInput
 }
 
-impl<'a> WorldRelayout<'a> {
+impl<'a> ScreenRelayout<'a> {
     /*
      * Restricts space of the given Layoutable to not exceed the bounds of the parent's absolute draw space
      * Returns Option because the restrictions could lead to no drawable space (layout out of bounds of parent drawing space)
@@ -91,21 +91,21 @@ impl<'a> WorldRelayout<'a> {
     }
 }
 
-pub struct WorldArea<'a> {
+pub struct ScreenArea<'a> {
     pub absolute_draw_space: AbsoluteSpace,
     pub absolute_layout_space: AbsoluteSpace,
     pub buf: &'a mut Buffer
 }
 
-impl<'a> WorldArea<'a> {
-    pub fn transform(self, absolute_layout_space: AbsoluteSpace) -> WorldArea<'a> {
-        WorldArea { absolute_layout_space, ..self }
+impl<'a> ScreenArea<'a> {
+    pub fn transform(self, absolute_layout_space: AbsoluteSpace) -> ScreenArea<'a> {
+        ScreenArea { absolute_layout_space, ..self }
     }
 
     pub fn draw_child<T: Drawable>(&mut self, child: &T) {
         let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
         if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
-            child.draw(WorldArea {
+            child.draw(ScreenArea {
                 absolute_draw_space: subarea_absolute_draw_space,
                 absolute_layout_space: subarea_absolute_layout_space,
                 buf: self.buf
@@ -123,7 +123,7 @@ impl<'a> WorldArea<'a> {
         let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
         if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
             child.stateful_draw(
-                WorldArea {
+                ScreenArea {
                     absolute_draw_space: subarea_absolute_draw_space,
                     absolute_layout_space: subarea_absolute_layout_space,
                     buf: self.buf
@@ -155,22 +155,22 @@ pub struct Input {
 }
 
 #[derive(Debug, Default)]
-pub struct WorldInput {
+pub struct ScreenInput {
     inputs: Vec<Input>,
     current_input_id: Option<MountId>,
     valid_input_count: usize,
     did_mouse_move: bool,
-    input_event_queue: Vec<WorldInputEvent>
+    input_event_queue: Vec<ScreenInputEvent>
 }
 
 #[derive(Debug)]
-pub struct WorldInputEvent {
+pub struct ScreenInputEvent {
     mount_id: MountId,
-    pub kind: WorldInputEventKind
+    pub kind: ScreenInputEventKind
 }
 
 #[derive(Debug)]
-pub enum WorldInputEventKind {
+pub enum ScreenInputEventKind {
     Click(Point2D),
     Drag(Point2D),
     Move(Point2D),
@@ -178,7 +178,7 @@ pub enum WorldInputEventKind {
     Up(Point2D)
 }
 
-impl WorldInput {
+impl ScreenInput {
     fn invalidate_all_inputs(&mut self) {
         self.valid_input_count = 0;
     }
@@ -224,16 +224,16 @@ impl WorldInput {
                 }
 
                 if let Some(old_id) = self.current_input_id {
-                    self.input_event_queue.push(WorldInputEvent { 
+                    self.input_event_queue.push(ScreenInputEvent { 
                         mount_id: old_id,
-                        kind: WorldInputEventKind::Up(point)
+                        kind: ScreenInputEventKind::Up(point)
                     });
                 }
 
                 if let Some(id) = maybe_id {
-                    self.input_event_queue.push(WorldInputEvent { 
+                    self.input_event_queue.push(ScreenInputEvent { 
                         mount_id: id, 
-                        kind: WorldInputEventKind::Down(point) 
+                        kind: ScreenInputEventKind::Down(point) 
                     });
                 }
 
@@ -246,22 +246,22 @@ impl WorldInput {
                 }
 
                 self.did_mouse_move = true;
-                self.input_event_queue.push(WorldInputEvent { 
+                self.input_event_queue.push(ScreenInputEvent { 
                     mount_id: self.current_input_id.unwrap(), 
-                    kind: WorldInputEventKind::Drag(point)
+                    kind: ScreenInputEventKind::Drag(point)
                 });
             },
             MouseEventKind::Moved => {
                 if let Some(current_input_id) = self.current_input_id {
                     self.did_mouse_move = true;
-                    self.input_event_queue.push(WorldInputEvent {
+                    self.input_event_queue.push(ScreenInputEvent {
                         mount_id: current_input_id, 
-                        kind: WorldInputEventKind::Drag(point)
+                        kind: ScreenInputEventKind::Drag(point)
                     });
                 } else if let Some(id) = maybe_id {
-                    self.input_event_queue.push(WorldInputEvent { 
+                    self.input_event_queue.push(ScreenInputEvent { 
                         mount_id: id, 
-                        kind: WorldInputEventKind::Move(point)
+                        kind: ScreenInputEventKind::Move(point)
                     });
                 }
             }
@@ -270,14 +270,14 @@ impl WorldInput {
                     return false
                 }
 
-                self.input_event_queue.push(WorldInputEvent { 
+                self.input_event_queue.push(ScreenInputEvent { 
                     mount_id: self.current_input_id.unwrap(), 
-                    kind: WorldInputEventKind::Up(point)
+                    kind: ScreenInputEventKind::Up(point)
                 });
                 if self.current_input_id == self.query(point) {
-                    self.input_event_queue.push(WorldInputEvent { 
+                    self.input_event_queue.push(ScreenInputEvent { 
                         mount_id: self.current_input_id.unwrap(), 
-                        kind: WorldInputEventKind::Click(point)
+                        kind: ScreenInputEventKind::Click(point)
                     });
                 }
 

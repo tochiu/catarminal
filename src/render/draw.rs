@@ -1,6 +1,6 @@
 use super::{
     space::*,
-    world::*
+    screen::*
 };
 
 pub struct NoDrawState;
@@ -13,12 +13,12 @@ pub trait Layoutable {
 }
 
 pub trait Drawable: std::fmt::Debug + Layoutable {
-    fn draw(&self, area: WorldArea);
+    fn draw(&self, area: ScreenArea);
 }
 
 pub trait StatefulDrawable: std::fmt::Debug + Layoutable {
     type State;
-    fn stateful_draw(&self, area: WorldArea, state: &Self::State);
+    fn stateful_draw(&self, area: ScreenArea, state: &Self::State);
 }
 
 #[derive(Debug, Default, Clone, Copy)]

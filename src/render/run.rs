@@ -1,7 +1,7 @@
 use super::{
     map::{self, Map, Tile},
     game::Game, 
-    world::World, 
+    screen::Screen, 
     draw::NoDrawState
 };
 
@@ -28,7 +28,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
 
-    let mut world = World::new(Game::new(Map::new(tiles)));
+    let mut screen = Screen::new(Game::new(Map::new(tiles)));
 
     // setup terminal
     enable_raw_mode()?;
@@ -62,7 +62,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                 Event::Mouse(event) => {
                     log::info!("mouse event: {:?}", event);
                     // call on separate line because we dont want short-circuiting to prevent mouse input handler from running
-                    let input_requires_rerender = world.input.handle_mouse_input(event, &mut world.root); 
+                    let input_requires_rerender = screen.input.handle_mouse_input(event, &mut screen.root); 
                     should_render = should_render || input_requires_rerender;
                 }
             }
@@ -79,7 +79,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                     .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                     .split(f.size());
                 
-                f.render_stateful_widget(world.as_widget(), rects[0], &mut NoDrawState);
+                f.render_stateful_widget(screen.as_widget(), rects[0], &mut NoDrawState);
                 
                 let tui_w = TuiLoggerWidget::default()
                     .block(
@@ -102,7 +102,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
                 f.render_widget(tui_w, rects[1]);
             } else {
-                f.render_stateful_widget(world.as_widget(), f.size(), &mut NoDrawState);
+                f.render_stateful_widget(screen.as_widget(), f.size(), &mut NoDrawState);
             }
         })?;
     }

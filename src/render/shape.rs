@@ -1,7 +1,7 @@
 use super::{
     space::*,
     draw::*, 
-    world::*
+    screen::*
 };
 
 use tui::{buffer::Cell, style::Style};
@@ -52,7 +52,7 @@ impl Layoutable for Shape128 {
 }
 
 impl Drawable for Shape128 {
-    fn draw(&self, area: WorldArea) {
+    fn draw(&self, area: ScreenArea) {
         for point in area.absolute_draw_space {
             let bit_point = area.absolute_layout_space.relative_position_of(point);
             if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
@@ -135,7 +135,7 @@ impl Layoutable for Shape {
 }
 
 impl Drawable for Shape {
-    fn draw(&self, area: WorldArea) {
+    fn draw(&self, area: ScreenArea) {
         for point in area.absolute_draw_space {
             let bit_point = area.absolute_layout_space.relative_position_of(point);
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
@@ -238,7 +238,7 @@ impl<'a> Layoutable for StringShape<'_> {
 }
 
 impl<'a> Drawable for StringShape<'_> {
-    fn draw(&self, area: WorldArea) {
+    fn draw(&self, area: ScreenArea) {
         let absolute_draw_space = area.absolute_draw_space;
         let absolute_layout_space = area.absolute_layout_space;
         let offset_y = absolute_draw_space.position.y - absolute_layout_space.position.y;

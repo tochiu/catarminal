@@ -3,7 +3,7 @@ use super::{
     super::{
         space::*,
         draw::*,
-        world::*,
+        screen::*,
         mount::*,
         shape::*
     }
@@ -216,7 +216,7 @@ impl Layoutable for Map {
 }
 
 impl Drawable for Map {
-    fn draw(&self, mut area: WorldArea) {
+    fn draw(&self, mut area: ScreenArea) {
         area.draw_child(self.bkg);
         area.draw_children(&self.tiles);
     }
@@ -224,7 +224,7 @@ impl Drawable for Map {
 
 impl StatefulDrawable for Map {
     type State = NoDrawState;
-    fn stateful_draw(&self, area: WorldArea, _: &Self::State) {
+    fn stateful_draw(&self, area: ScreenArea, _: &Self::State) {
         self.draw(area);
     }
 }
