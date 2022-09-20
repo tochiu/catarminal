@@ -1,6 +1,8 @@
 use super::{
-    map::{self, Map, Tile}, 
-    world::World
+    map::{self, Map, Tile},
+    game::Game, 
+    world::World, 
+    draw::NoDrawState
 };
 
 use crossterm::{
@@ -11,8 +13,8 @@ use crossterm::{
 use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use std::{io, time::Duration};
 use tui::{
-    backend::{CrosstermBackend, Backend},
-    Terminal, widgets::*, layout::{Constraint, Layout, Direction, Rect}, style::{Style, Color}, Frame,
+    backend::{CrosstermBackend},
+    Terminal, widgets::*, layout::{Constraint, Layout, Direction}, style::{Style, Color},
 };
 
 use rand::Rng;
@@ -26,7 +28,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
     }
 
-    let mut world = World::new(Map::new(tiles));
+    let mut world = World::new(Game::new(Map::new(tiles)));
 
     // setup terminal
     enable_raw_mode()?;
@@ -77,7 +79,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                     .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                     .split(f.size());
                 
-                draw_frame(f, rects[0], &mut world);
+                f.render_stateful_widget(world.as_widget(), rects[0], &mut NoDrawState);
                 
                 let tui_w = TuiLoggerWidget::default()
                     .block(
@@ -100,55 +102,10 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
                 f.render_widget(tui_w, rects[1]);
             } else {
-                draw_frame(f, f.size(), &mut world);
+                f.render_stateful_widget(world.as_widget(), f.size(), &mut NoDrawState);
             }
         })?;
     }
 
     Ok(())
-}
-
-fn draw_frame<B: Backend>(f: &mut Frame<B>, space: Rect, world: &mut World) {
-    // TODO: refactor this garbage since tui's built in layout system kinda blows
-
-    let rects = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(space.width.saturating_sub(39)), Constraint::Min(39)].as_ref())
-        .split(space);
-    
-    let event_log = Block::default()
-        .title(" Events ")
-        .border_style(Style::default().fg(Color::White).bg(Color::Black))
-        .borders(Borders::ALL);
-    let chat = Block::default()
-        .title(" Chat ")
-        .border_style(Style::default().fg(Color::White).bg(Color::Black))
-        .borders(Borders::ALL);
-    let players = Block::default()
-        .title(" Players ")
-        .border_style(Style::default().fg(Color::White).bg(Color::Black))
-        .borders(Borders::ALL);
-    
-    let map_block = Block::default()
-        .title(" Map ")
-        .border_style(Style::default().fg(Color::White).bg(Color::Black))
-        .borders(Borders::ALL);
-    let map_rect = map_block.inner(rects[0]);
-
-    let right_pane_rects = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(rects[1].height.saturating_sub(5*4)), Constraint::Min(5*4)].as_ref())
-        .split(rects[1]);
-    let chat_event_rects = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(right_pane_rects[0]);
-
-    
-    f.render_widget(map_block, rects[0]);
-    f.render_widget(world.as_widget(), map_rect);
-
-    f.render_widget(event_log, chat_event_rects[0]);
-    f.render_widget(chat, chat_event_rects[1]);
-    f.render_widget(players, right_pane_rects[1]);
 }

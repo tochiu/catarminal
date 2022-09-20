@@ -1,33 +1,25 @@
 use super::{
     draw::*,
     space::*,
-    mount::*,
-    map::Map, 
-    drag::Dragger
+    mount::*
 };
 
 use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
 use tui::{
     layout::Rect,
     buffer::Buffer,
-    widgets::Widget
+    widgets::{Widget, StatefulWidget}
 };
 
-pub type WorldRoot = Dragger<Map>;
-
 #[derive(Debug)]
-pub struct World {
-    pub root: WorldRoot,
+pub struct World<T: MountableLayout + StatefulDrawable> {
+    pub root: T,
     pub input: WorldInput
 }
 
-impl World {
-    pub fn new(map: Map) -> Self {
-        let mut root = WorldRoot::new(map);
-        root.mount(Mount {
-            id: 0,
-            children: 0
-        });
+impl<T: MountableLayout + StatefulDrawable> World<T> {
+    pub fn new(mut root: T) -> Self {
+        root.mount(Mount::default());
 
         World {
             root,
@@ -35,7 +27,7 @@ impl World {
         }
     }
 
-    pub fn as_widget(&mut self) -> WorldWidget {
+    pub fn as_widget(&mut self) -> WorldWidget<T> {
         WorldWidget {
             world: self
         }
@@ -51,7 +43,7 @@ impl World {
         });
     }
 
-    fn draw_root(&self, absolute_world_space: AbsoluteSpace, buf: &mut Buffer, state: &<WorldRoot as StatefulDrawable>::State) {
+    fn draw_root(&self, absolute_world_space: AbsoluteSpace, buf: &mut Buffer, state: &<T as StatefulDrawable>::State) {
         WorldArea::draw_stateful_child(
             &mut WorldArea {
                 absolute_draw_space: absolute_world_space,
@@ -64,18 +56,19 @@ impl World {
     }
 }
 
-pub struct WorldWidget<'a> {
-    world: &'a mut World
+pub struct WorldWidget<'a, T: MountableLayout + StatefulDrawable> {
+    world: &'a mut World<T>
 }
 
-impl<'a> Widget for WorldWidget<'a> {
-    fn render(self, rect: Rect, buf: &mut Buffer) {
+impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for WorldWidget<'a, T> {
+    type State = T::State;
+    fn render(self, rect: Rect, buf: &mut Buffer, state: &mut T::State) {
         let absolute_world_space = AbsoluteSpace::from_rect(rect);
 
         self.world.input.invalidate_all_inputs();
         self.world.relayout_root(absolute_world_space);
         self.world.input.clear_invalid_inputs();
-        self.world.draw_root(absolute_world_space, buf, &NoDrawState);
+        self.world.draw_root(absolute_world_space, buf, &state);
     }
 }
 
@@ -98,7 +91,6 @@ impl<'a> WorldRelayout<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct WorldArea<'a> {
     pub absolute_draw_space: AbsoluteSpace,
     pub absolute_layout_space: AbsoluteSpace,
@@ -145,6 +137,14 @@ impl<'a> WorldArea<'a> {
         for (child, state) in std::iter::zip(children, states) {
             self.draw_stateful_child(child, state);
         }
+    }
+
+    pub fn draw_widget<T: Widget>(&mut self, widget: T, rect: Rect) {
+        widget.render(rect, self.buf)
+    }
+
+    pub fn draw_stateful_widget<T: StatefulWidget>(&mut self, widget: T, mut state: T::State, rect: Rect) {
+        widget.render(rect, self.buf, &mut state)
     }
 }
 
@@ -209,7 +209,7 @@ impl WorldInput {
         None
     }
 
-    pub fn handle_mouse_input(&mut self, event: MouseEvent, root: &mut WorldRoot) -> bool {
+    pub fn handle_mouse_input(&mut self, event: MouseEvent, root: &mut dyn MountableLayout) -> bool {
         let point = Point2D::new(
             i16::try_from(event.column).unwrap(), 
             i16::try_from(event.row).unwrap()
