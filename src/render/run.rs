@@ -1,5 +1,7 @@
+use crate::enums::PortResource;
+
 use super::{
-    map::{self, Map, Tile},
+    map::{self, Map, Tile, Port},
     game::Game, 
     screen::Screen, 
     draw::NoDrawState
@@ -17,18 +19,24 @@ use tui::{
     Terminal, widgets::*, layout::{Constraint, Layout, Direction}, style::{Style, Color},
 };
 
-use rand::Rng;
+use rand::{prelude::Distribution, distributions::Uniform};
 
 pub fn run(enable_logger: bool) -> Result<(), io::Error> {
     let mut rng = rand::thread_rng();
-    let mut tiles: Vec<Tile> = Vec::with_capacity(*map::MAP_TILE_CAPACITY);
-    
-    for _ in 0..tiles.capacity() {
-        let roll: u8 = rng.gen_range(2..12);
-        tiles.push(Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()));
-    }
 
-    let mut screen = Screen::new(Game::new(Map::new(tiles)));
+    let tiles: Vec<Tile> = Uniform::from(2..12)
+        .sample_iter(&mut rng)
+        .take(*map::MAP_TILE_CAPACITY)
+        .map(|roll| Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()))
+        .collect();
+
+    let ports: Vec<Port> = PortResource::Any
+        .sample_iter(&mut rng)
+        .take(*map::MAP_PORT_CAPACITY)
+        .map(|resource| Port::new(resource))
+        .collect();
+
+    let mut screen = Screen::new(Game::new(Map::new(tiles, ports)));
 
     // setup terminal
     enable_raw_mode()?;

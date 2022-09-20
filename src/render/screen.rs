@@ -8,8 +8,9 @@ use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
 use tui::{
     layout::Rect,
     buffer::Buffer,
-    widgets::{Widget, StatefulWidget}
+    widgets::{Widget, StatefulWidget}, style::Color
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
 pub struct Screen<T: MountableLayout + StatefulDrawable> {
@@ -145,6 +146,46 @@ impl<'a> ScreenArea<'a> {
 
     pub fn draw_stateful_widget<T: StatefulWidget>(&mut self, widget: T, mut state: T::State, rect: Rect) {
         widget.render(rect, self.buf, &mut state)
+    }
+
+    pub fn draw_string_line(&mut self, line: &str, position: Point2D, color: Color) {
+        let absolute_line_layout_space = AbsoluteSpace {
+            position: self.absolute_layout_space.absolute_position_of(position),
+            size: Size2D::new(u16::try_from(line.len()).unwrap_or(u16::MAX), 1)
+        };
+
+        if let Some(absolute_line_draw_space) = self.absolute_draw_space.try_intersection(absolute_line_layout_space) {
+            let range_lb = (absolute_line_draw_space.left() - absolute_line_layout_space.left()) as usize;
+            let range_ub = (absolute_line_draw_space.right() - absolute_line_layout_space.left()) as usize;
+            let buf_index = self.buf.index_of(
+                absolute_line_draw_space.position.x as u16, 
+                absolute_line_draw_space.position.y as u16
+            );
+            for (i, c) in line[range_lb..range_ub].chars().enumerate() {
+                self.buf.content[buf_index + i].set_char(c).set_fg(color);
+            }
+        }
+    }
+
+    pub fn draw_unicode_line(&mut self, line: &str, pos: Point2D, color: Color) {
+        let bufy = self.absolute_layout_space.top() + pos.y;
+        let bufx = self.absolute_layout_space.left() + pos.x;
+        if 
+            bufy >= self.absolute_draw_space.top() && 
+            bufy < self.absolute_draw_space.bottom() &&
+            bufx < self.absolute_draw_space.right()
+        {
+            let bufx = self.absolute_layout_space.left() + pos.x;
+            let index = self.buf.index_of(bufx as u16, bufy as u16);
+            for (offset, grapheme) in 
+                line.graphemes(false) 
+                    .enumerate()
+                    .skip((self.absolute_draw_space.left() - bufx).max(0) as usize)
+                    .take((self.absolute_draw_space.right() - bufx).max(0) as usize)
+            {
+                self.buf.content[index + offset].set_symbol(grapheme).set_fg(color);
+            }
+        }
     }
 }
 
