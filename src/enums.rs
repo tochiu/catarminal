@@ -11,7 +11,7 @@ const BRICK_RESOURCE_COLOR: Color = Color::Rgb(223, 097, 040);
 const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(024, 152, 055);
 const ORE_RESOURCE_COLOR: Color = Color::Rgb(059, 065, 061);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Resource {
     Ore,
     Wool,
@@ -20,7 +20,7 @@ pub enum Resource {
     Lumber
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PortResource {
     Kind(Resource),
     Any

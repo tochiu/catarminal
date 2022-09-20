@@ -176,14 +176,14 @@ impl<'a> ScreenArea<'a> {
             bufx < self.absolute_draw_space.right()
         {
             let bufx = self.absolute_layout_space.left() + pos.x;
-            let index = self.buf.index_of(bufx as u16, bufy as u16);
-            for (offset, grapheme) in 
-                line.graphemes(false) 
-                    .enumerate()
+            let index = self.buf.index_of((bufx + (self.absolute_draw_space.left() - bufx).max(0)) as u16, bufy as u16);
+            for (i, grapheme) in 
+                line.graphemes(false)
                     .skip((self.absolute_draw_space.left() - bufx).max(0) as usize)
                     .take((self.absolute_draw_space.right() - bufx).max(0) as usize)
+                    .enumerate()
             {
-                self.buf.content[index + offset].set_symbol(grapheme).set_fg(color);
+                self.buf.content[index + i].set_symbol(grapheme).set_fg(color);
             }
         }
     }
