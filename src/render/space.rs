@@ -101,11 +101,14 @@ impl UDim2 {
     }
 
     pub const fn from_point2d(point: Point2D) -> Self {
-        UDim2::new(0.0, point.x, 0.0, point.y)
+        UDim2::from_offset(point.x, point.y)
     }
 
     pub fn from_size2d(size: Size2D) -> Self {
-        UDim2::new(0.0, i16::try_from(size.x).unwrap(), 0.0, i16::try_from(size.y).unwrap())
+        UDim2::from_offset(
+            i16::try_from(size.x).unwrap(), 
+            i16::try_from(size.y).unwrap()
+        )
     }
 }
 
@@ -201,6 +204,15 @@ impl AbsoluteSpace {
     pub fn is_interior_point(self, point: Point2D) -> bool {
         point.x >= self.left() && point.x < self.right() && point.y >= self.top() && point.y < self.bottom()
     }
+
+    pub fn to_rect(self) -> Rect {
+        Rect::new(
+            u16::try_from(self.position.x).unwrap(), 
+            u16::try_from(self.position.y).unwrap(), 
+            self.size.x, 
+            self.size.y
+        )
+    }
 }
 
 impl IntoIterator for AbsoluteSpace {
@@ -257,13 +269,6 @@ impl Space {
 
     pub const fn sized(size: UDim2) -> Self {
         Space::new(size, UDim2::new(0.0, 0, 0.0, 0), Scale2D::new(0.0, 0.0))
-    }
-
-    pub fn from_size2d(size: Size2D) -> Self {
-        Space::sized(UDim2::from_offset(
-            i16::try_from(size.x).unwrap(),
-            i16::try_from(size.y).unwrap()
-        ))
     }
 
     pub fn to_absolute_space(self, world: AbsoluteSpace) -> AbsoluteSpace {
