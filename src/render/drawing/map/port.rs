@@ -1,7 +1,8 @@
-use super::super::{
+use super::super::super::{
     draw::*,
     space::*,
-    screen::*
+    screen::*,
+    iter::CustomIterator
 };
 
 use crate::enums;
@@ -9,8 +10,11 @@ use crate::enums;
 use tui::style::Color;
 
 const PORT_SIZE: Size2D = Size2D::new(3, 2);
-const PORT_SYMBOL_OFFSET: Point2D = Point2D::new(1, 0);
+const PORT_SYMBOL_ANY_OFFSET: Point2D = Point2D::new(1, 0);
+const PORT_SYMBOL_RESOURCE_OFFSET: Point2D = Point2D::new(0, 0);
 const PORT_RATIO_OFFSET: Point2D = Point2D::new(0, 1);
+
+pub const PORT_BOARDWALK_COLOR: Color = Color::Rgb(221, 149, 47);
 
 #[derive(Debug)]
 pub struct Port {
@@ -34,14 +38,24 @@ impl Port {
 }
 
 impl Layoutable for Port {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl Drawable for Port {
     fn draw(&self, mut area: ScreenArea) {
-        area.draw_unicode_line(self.resource.get_symbol(), PORT_SYMBOL_OFFSET, Color::White);
+        let mut itr = area.iter_cells_mut();
+        while let Some(cell) = itr.next() {
+            cell.set_bg(PORT_BOARDWALK_COLOR);
+        }
+
+        area.draw_unicode_line(
+            self.resource.get_symbol(), 
+            if self.resource == enums::PortResource::OfAnyKind 
+                { PORT_SYMBOL_ANY_OFFSET } else 
+                { PORT_SYMBOL_RESOURCE_OFFSET }, 
+            Color::White
+        );
         area.draw_string_line(&self.ratio, PORT_RATIO_OFFSET, Color::White);
     }
 }

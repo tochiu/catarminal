@@ -1,14 +1,16 @@
-use crate::enums::PortResource;
+use crate::enums;
 
 use super::{
-    map::{self, Map, Tile, Port},
-    game::Game, 
+    drawing::{
+        map::{self, Map, Tile, Port},
+        game::Game
+    }, 
     screen::Screen, 
     draw::NoDrawState
 };
 
 use crossterm::{
-    event::{poll, read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{poll, read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEvent},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -16,27 +18,37 @@ use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use std::{io, time::Duration};
 use tui::{
     backend::{CrosstermBackend},
-    Terminal, widgets::*, layout::{Constraint, Layout, Direction}, style::{Style, Color},
+    Terminal, widgets::*, 
+    layout::{Constraint, Layout, Direction}, 
+    style::{Style, Color},
 };
 
-use rand::{prelude::Distribution, distributions::Uniform};
+use rand::{prelude::Distribution, distributions::Uniform, Rng};
+
+const DEFAULT_REDRAW_DELAY_MS: u64 = 4;
 
 pub fn run(enable_logger: bool) -> Result<(), io::Error> {
     let mut rng = rand::thread_rng();
 
-    let tiles: Vec<Tile> = Uniform::from(2..12)
-        .sample_iter(&mut rng)
-        .take(*map::MAP_TILE_CAPACITY)
-        .map(|roll| Tile::new(if roll > 6 { roll + 1 } else { roll }, rand::random()))
+    let mut tiles: Vec<Tile> = Uniform::from(2..12) // from a uniform distribution from 2-12
+        .sample_iter(&mut rng) // create an iterator that samples from it
+        .take(*map::MAP_TILE_CAPACITY - 1) // sample as many times equal to the map capacity for tiles (minus 1 for desert tile)
+        .map(|roll| Tile::new(
+            if roll == 7 { 12 } else { roll }, // 7 becomes 12 because 7 is not on a tile its a robber round
+            enums::TileResource::Of(rand::random::<enums::Resource>())
+        )) 
         .collect();
 
-    let ports: Vec<Port> = PortResource::Any
-        .sample_iter(&mut rng)
-        .take(*map::MAP_PORT_CAPACITY)
-        .map(|resource| Port::new(resource))
+    // insert desert tile at a random location in the tiles vector
+    tiles.insert(rng.gen_range(0..=tiles.len()), Tile::new(7, enums::TileResource::OfDesert));
+
+    let ports: Vec<Port> = enums::PortResource::OfAnyKind // sample_iter takes a self type so I need to do PortResource::OfAnyKind instead of just PortResource
+        .sample_iter(&mut rng) // create an iterator that takes samples of PortResource
+        .take(*map::MAP_PORT_CAPACITY) // sample as many times equal to the map capacity for ports
+        .map(|resource| Port::new(resource)) // we want ports containing these resources
         .collect();
 
-    let mut screen = Screen::new(Game::new(Map::new(tiles, ports)));
+    let mut game_screen = Screen::new(Game::new(Map::new(tiles, ports)));
 
     // setup terminal
     enable_raw_mode()?;
@@ -44,10 +56,14 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    let mut frame_number: u128 = 0;
+    let mut delay_ms = 0;
 
     loop {
         let mut should_render = false;
-        if poll(Duration::from_millis(16))? {
+        let mut maybe_mouse_event: Option<MouseEvent> = None;
+
+        if poll(Duration::from_millis(delay_ms))? {
             match read()? {
                 Event::Resize(_, _) => should_render = true,
                 Event::Key(key) => {
@@ -67,18 +83,29 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                         _ => ()
                     }
                 },
-                Event::Mouse(event) => {
-                    log::info!("mouse event: {:?}", event);
-                    // call on separate line because we dont want short-circuiting to prevent mouse input handler from running
-                    let input_requires_rerender = screen.input.handle_mouse_input(event, &mut screen.root); 
-                    should_render = should_render || input_requires_rerender;
-                }
+                Event::Mouse(event) => maybe_mouse_event = Some(event)
             }
         }
+
+        // game a lock of the game_screen here
+        //let mut game_screen = game_screen_mutex.lock().unwrap();
+
+        delay_ms = if game_screen.animation.contains_any() { 0 } else { DEFAULT_REDRAW_DELAY_MS };
+        should_render = should_render || game_screen.animation.contains_any();
+
+        if let Some(mouse_event) = maybe_mouse_event {
+            log::info!("mouse event: {:?}", mouse_event);
+            // call on separate line because we dont want short-circuiting to prevent mouse input handler from running
+            let event_requires_rerender = game_screen.input.handle_mouse_input(mouse_event, &mut game_screen.root); 
+            should_render = should_render || event_requires_rerender;
+        } 
 
         if !should_render {
             continue
         }
+
+        log::info!("drawing frame #{:?}", frame_number);
+        frame_number += 1;
 
         terminal.draw(|f| {
             if enable_logger {
@@ -87,7 +114,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                     .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                     .split(f.size());
                 
-                f.render_stateful_widget(screen.as_widget(), rects[0], &mut NoDrawState);
+                f.render_stateful_widget(game_screen.as_widget(), rects[0], &mut NoDrawState);
                 
                 let tui_w = TuiLoggerWidget::default()
                     .block(
@@ -110,7 +137,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
                 f.render_widget(tui_w, rects[1]);
             } else {
-                f.render_stateful_widget(screen.as_widget(), f.size(), &mut NoDrawState);
+                f.render_stateful_widget(game_screen.as_widget(), f.size(), &mut NoDrawState);
             }
         })?;
     }

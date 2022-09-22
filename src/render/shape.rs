@@ -4,7 +4,7 @@ use super::{
     screen::*
 };
 
-use tui::{buffer::Cell, style::Style};
+use tui::style::Style;
 
 use unicode_segmentation::{UnicodeSegmentation, Graphemes};
 use unicode_width::UnicodeWidthStr;
@@ -30,25 +30,25 @@ impl BitShape128 {
 pub struct Shape128 {
     pub layout: DrawLayout,
     pub shape: &'static BitShape128,
-    pub cell: Cell
+    pub symbol: &'static str,
+    pub style: Style
 }
 
 impl Shape128 {
-    pub fn new(shape: &'static BitShape128, cell: Cell) -> Self {
-        Shape128 { 
+    pub fn new(shape: &'static BitShape128, symbol: &'static str, style: Style, mut layout: DrawLayout) -> Self {
+        layout.set_size(UDim2::from_size2d(shape.size));
+        Shape128 {
+            layout,
             shape, 
-            cell, 
-            layout: DrawLayout::default()
-                .set_size(UDim2::from_size2d(shape.size))
-                .clone() 
+            symbol,
+            style
         }
     }
 }
 
 impl Layoutable for Shape128 {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl Drawable for Shape128 {
@@ -57,7 +57,9 @@ impl Drawable for Shape128 {
             let bit_point = area.absolute_layout_space.relative_position_of(point);
             if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
-                area.buf.content[i] = self.cell.clone();
+                area.buf.content[i]
+                    .set_symbol(self.symbol)
+                    .set_style(self.style);
             }
         }
     }
@@ -113,25 +115,25 @@ impl BitShape {
 pub struct Shape {
     pub layout: DrawLayout,
     pub shape: &'static BitShape,
-    pub cell: Cell
+    pub symbol: &'static str,
+    pub style: Style
 }
 
 impl Shape {
-    pub fn new(shape: &'static BitShape, cell: Cell) -> Self {
+    pub fn new(shape: &'static BitShape, symbol: &'static str, style: Style, mut layout: DrawLayout) -> Self {
+        layout.set_size(UDim2::from_size2d(shape.size));
         Shape { 
             shape, 
-            cell, 
-            layout: DrawLayout::default()
-                .set_size(UDim2::from_size2d(shape.size))
-                .clone() 
+            symbol,
+            style,
+            layout
         }
     }
 }
 
 impl Layoutable for Shape {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl Drawable for Shape {
@@ -141,7 +143,9 @@ impl Drawable for Shape {
             let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
             if self.shape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
-                area.buf.content[i] = self.cell.clone();
+                area.buf.content[i]
+                    .set_symbol(self.symbol)
+                    .set_style(self.style);
             }
         }
     }
@@ -220,21 +224,19 @@ pub struct StringShape<'a> {
 }
 
 impl<'a> StringShape<'a> {
-    pub fn new(shape: &'a DrawableString, style: Style) -> Self {
+    pub fn new(shape: &'a DrawableString, style: Style, mut layout: DrawLayout) -> Self {
+        layout.set_size(UDim2::from_size2d(shape.size));
         StringShape { 
             shape, 
             style, 
-            layout: DrawLayout::default()
-                .set_size(UDim2::from_size2d(shape.size))
-                .clone() 
+            layout
         }
     }
 }
 
 impl<'a> Layoutable for StringShape<'_> {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl<'a> Drawable for StringShape<'_> {

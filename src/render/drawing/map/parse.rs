@@ -1,11 +1,8 @@
 use super::{
-    tile::{self, Tile},
-    port::Port,
-    super::{
+    tile,
+    super::super::{
         space::*,
         draw::*,
-        screen::*,
-        mount::*,
         shape::*
     }
 };
@@ -14,15 +11,6 @@ use tui::style::{Color, Style};
 
 use std::{fs::File, collections::{HashMap, HashSet}};
 use std::io::prelude::*;
-
-#[derive(Debug)]
-pub struct Map {
-    bkg: &'static StringShape<'static>,
-    tiles: Vec<Tile>,
-    ports: Vec<Port>,
-    layout: DrawLayout,
-    mount: Mount
-}
 
 #[derive(Debug)]
 pub struct MapGraph {
@@ -40,18 +28,16 @@ pub struct MapGraph {
     pub road_ports: Vec<Option<usize>>
 }
 
-const MAP_TILE_ANCHOR: Scale2D = Scale2D::new(0.0, 0.5);
-
 lazy_static! {
-    static ref MAP_CONTENT: String = {
+    pub static ref MAP_CONTENT: String = {
         let mut file = File::open("./assets/map.txt").expect("Cannot open the file");
         let mut file_str = String::new();
         file.read_to_string(&mut file_str).expect("Cannot read the file");
         file_str
     };
 
-    static ref MAP_BKG_DRAW_STRING: DrawableString<'static> = DrawableString::new(MAP_CONTENT.as_str());
-    static ref MAP_BKG_SHAPE: StringShape<'static> = StringShape::new(&MAP_BKG_DRAW_STRING, Style::default().fg(Color::White));
+    pub static ref MAP_BKG_DRAW_STRING: DrawableString<'static> = DrawableString::new(MAP_CONTENT.as_str());
+    pub static ref MAP_BKG_SHAPE: StringShape<'static> = StringShape::new(&MAP_BKG_DRAW_STRING, Style::default().fg(Color::White), DrawLayout::default());
 
     pub static ref MAP_GRAPH: MapGraph = {
 
@@ -227,51 +213,4 @@ lazy_static! {
 
     pub static ref MAP_TILE_CAPACITY: usize = MAP_GRAPH.tile_points.len();
     pub static ref MAP_PORT_CAPACITY: usize = MAP_GRAPH.port_points.len();
-}
-
-impl Map {
-    pub fn new(tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
-        let mut map = Map { tiles, ports, bkg: &MAP_BKG_SHAPE, layout: DrawLayout::default(), mount: Mount::default() };
-
-        map.layout.set_size(UDim2::from_size2d(MAP_BKG_DRAW_STRING.size));
-        for (i, tile) in map.tiles.iter_mut().enumerate() {
-            tile.layout
-                .set_position(UDim2::from_point2d(MAP_GRAPH.tile_points[i]))
-                .set_anchor(MAP_TILE_ANCHOR);
-        }
-
-        for (port, &port_point) in map.ports.iter_mut().zip(MAP_GRAPH.port_points.iter()) {
-            port.layout.set_position(UDim2::from_point2d(port_point));
-        }
-
-        map
-    }
-}
-
-impl Layoutable for Map {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
-}
-
-impl Drawable for Map {
-    fn draw(&self, mut area: ScreenArea) {
-        area.draw_child(self.bkg);
-        area.draw_children(&self.tiles);
-        area.draw_children(&self.ports);
-    }
-}
-
-impl StatefulDrawable for Map {
-    type State = NoDrawState;
-    fn stateful_draw(&self, area: ScreenArea, _: &Self::State) {
-        self.draw(area);
-    }
-}
-
-impl MountableLayout for Map {
-    fn mount_ref(&self) -> &Mount { &self.mount }
-    fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
-    fn child_ref(&self, _: usize) -> Option<&dyn MountableLayout> { None }
-    fn child_mut(&mut self, _: usize) -> Option<&mut dyn MountableLayout> { None }
 }

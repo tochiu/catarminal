@@ -6,10 +6,11 @@ use rand::{
 };
 
 const WOOL_RESOURCE_COLOR: Color = Color::Rgb(140, 181, 014);
-const WHEAT_RESOURCE_COLOR: Color = Color::Rgb(240, 185, 032);
-const BRICK_RESOURCE_COLOR: Color = Color::Rgb(223, 097, 040);
-const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(024, 152, 055);
-const ORE_RESOURCE_COLOR: Color = Color::Rgb(059, 065, 061);
+const WHEAT_RESOURCE_COLOR: Color = Color::Rgb(224, 175, 51);
+const BRICK_RESOURCE_COLOR: Color = Color::Rgb(223, 97, 40);
+const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(19, 149, 58);
+const ORE_RESOURCE_COLOR: Color = Color::Rgb(164, 170, 166);
+const DESERT_RESOURCE_COLOR: Color = Color::Rgb(217, 210, 149);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Resource {
@@ -20,39 +21,9 @@ pub enum Resource {
     Lumber
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PortResource {
-    Kind(Resource),
-    Any
-}
-
-impl PortResource {
-    pub fn get_symbol(&self) -> &'static str {
-        match self {
-            Self::Any => "?",
-            Self::Kind(resource) => resource.get_symbol()
-        }
-    }
-
-    pub fn get_ratio(&self) -> (u32, u32) {
-        match self {
-            Self::Any => (3, 1),
-            Self::Kind(_) => (2, 1)
-        }
-    }
-}
-
-impl Distribution<PortResource> for PortResource {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> PortResource {
-        if rng.gen_range(0..6) == 0 {
-            Self::Any
-        } else {
-            Self::Kind(rand::random())
-        }
-    }
-}
-
 impl Resource {
+    const NUM_TYPES: usize = 5;
+
     pub fn get_color(&self) -> Color {
         match self {
             Self::Ore => ORE_RESOURCE_COLOR,
@@ -62,6 +33,7 @@ impl Resource {
             Self::Lumber => LUMBER_RESOURCE_COLOR
         }
     }
+
     pub fn get_symbol(&self) -> &'static str {
         match self {
             Self::Ore => "🪨",
@@ -81,6 +53,70 @@ impl Distribution<Resource> for Standard {
             2 => Resource::Wheat,
             3 => Resource::Brick,
             _ => Resource::Lumber
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum PortResource {
+    Of(Resource),
+    OfAnyKind
+}
+
+impl PortResource {
+    pub fn get_symbol(&self) -> &'static str {
+        match self {
+            Self::OfAnyKind => "?",
+            Self::Of(resource) => resource.get_symbol()
+        }
+    }
+
+    pub fn get_ratio(&self) -> (u32, u32) {
+        match self {
+            Self::OfAnyKind => (3, 1),
+            Self::Of(_) => (2, 1)
+        }
+    }
+}
+
+impl Distribution<PortResource> for PortResource {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> PortResource {
+        if rng.gen_range(0..Resource::NUM_TYPES as usize + 1) == 0 {
+            Self::OfAnyKind
+        } else {
+            Self::Of(rand::random::<Resource>())
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum TileResource {
+    OfDesert,
+    Of(Resource)
+}
+
+impl TileResource {
+    pub fn get_symbol(&self) -> &'static str {
+        match self {
+            Self::OfDesert => "🌵",
+            Self::Of(resource) => resource.get_symbol()
+        }
+    }
+
+    pub fn get_color(&self) -> Color {
+        match self {
+            Self::OfDesert => DESERT_RESOURCE_COLOR,
+            Self::Of(resource) => resource.get_color()
+        }
+    }
+}
+
+impl Distribution<TileResource> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> TileResource {
+        if rng.gen_range(0..Resource::NUM_TYPES as usize + 1) == 0 {
+            TileResource::OfDesert
+        } else {
+            TileResource::Of(rand::random::<Resource>())
         }
     }
 }

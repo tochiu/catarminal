@@ -1,8 +1,10 @@
+use tui::style::Style;
+
 use super::{
     space::*, 
-    mount::{MountableLayout, Mount}, 
+    mount::{MountableLayout, Mount, AsTrait}, 
     draw::{DrawLayout, StatefulDrawable, Layoutable}, 
-    screen::{ScreenArea, ScreenRelayout, ScreenInputEvent, ScreenInputEventKind}
+    screen::{ScreenArea, ScreenRelayout, ScreenInputEvent, ScreenInputEventKind}, iter::CustomIterator
 };
 
 #[derive(Debug)]
@@ -11,13 +13,15 @@ pub struct Dragger<T: MountableLayout + StatefulDrawable> {
     pub layout: DrawLayout,
     mount: Mount,
     canvas_offset: Point2D,
-    mouse_location: Point2D
+    mouse_location: Point2D,
+    style: Style
 }
 
 impl<T: MountableLayout + StatefulDrawable> Dragger<T> {
-    pub fn new(drawing: T) -> Self {
+    pub fn new(drawing: T, style: Style) -> Self {
         Dragger {
             drawing,
+            style,
             layout: DrawLayout::FULL,
             mount: Mount::default(),
             canvas_offset: Point2D::default(),
@@ -26,7 +30,7 @@ impl<T: MountableLayout + StatefulDrawable> Dragger<T> {
     }
 
     fn get_absolute_canvas_size(&self, absolute_window_space: AbsoluteSpace) -> Size2D {
-        self.drawing.layout_ref().space.to_absolute_space(absolute_window_space).size
+        self.drawing.to_absolute_layout_space(absolute_window_space).size
     }
 
     fn get_constrained_canvas_offset(&self, absolute_window_space: AbsoluteSpace) -> Point2D {
@@ -50,14 +54,18 @@ impl<T: MountableLayout + StatefulDrawable> Dragger<T> {
 }
 
 impl<T: MountableLayout + StatefulDrawable> Layoutable for Dragger<T> {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl<T: MountableLayout + StatefulDrawable> StatefulDrawable for Dragger<T> {
     type State = T::State;
-    fn stateful_draw(&self, area: ScreenArea, state: &Self::State) {
+    fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
+        let mut itr = area.iter_cells_mut();
+        while let Some(cell) = itr.next() {
+            cell.set_style(self.style);
+        }
+
         let canvas_space = self.get_absolute_canvas_space(area.absolute_layout_space);
         area.transform(canvas_space).draw_stateful_child(&self.drawing, state);
     }
@@ -86,11 +94,13 @@ impl<T: MountableLayout + StatefulDrawable> MountableLayout for Dragger<T> {
         }
     }
 
-    fn relayout(&mut self, mut relayout: ScreenRelayout) {
-        let absolute_window_space = relayout.absolute_layout_space;
+    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
+        let absolute_window_space = relayout.get_absolute_layout_of(self);
         self.canvas_offset = self.get_constrained_canvas_offset(absolute_window_space);
-        self.relayout_input_space(&mut relayout, Space::FULL);
-        self.relayout_children_in(relayout, self.get_absolute_canvas_space(absolute_window_space));
+        let absolute_canvas_space = self.get_absolute_canvas_space(absolute_window_space);
+
+        relayout.input_space_of(self.as_trait_mut(), Space::FULL);
+        relayout.children_in_space_of(self.as_trait_mut(), absolute_canvas_space);
     }
 
     fn on_mouse_input(&mut self, event: ScreenInputEvent) -> bool {

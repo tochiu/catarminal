@@ -1,10 +1,12 @@
 use super::{
-    drag::Dragger, 
-    map::Map, 
-    draw::*,
-    mount::*,
-    screen::*, 
-    space::*
+    map::{self, Map},
+    super::{
+        drag::Dragger,
+        draw::*,
+        mount::*,
+        screen::*, 
+        space::*
+    }
 };
 
 use tui::{
@@ -25,8 +27,9 @@ struct GameRegions {
 pub struct Game {
     mount: Mount,
     layout: DrawLayout,
-    map_dragger: Dragger<Map>,
     regions: GameRegions,
+
+    pub map_container: DrawContainer<Dragger<Map>>,
 }
 
 impl Game {
@@ -34,16 +37,15 @@ impl Game {
         Game {
             mount: Mount::default(),
             layout: DrawLayout::FULL,
-            map_dragger: Dragger::new(map),
+            map_container: DrawContainer::new(Dragger::new(map, Style::default().bg(map::MAP_OCEAN_COLOR))),
             regions: GameRegions::default()
         }
     }
 }
 
 impl Layoutable for Game {
-    fn layout_ref(&self) -> &DrawLayout {
-        &self.layout
-    }
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 impl StatefulDrawable for Game {
@@ -78,7 +80,7 @@ impl StatefulDrawable for Game {
             self.regions.players
         );
         
-        area.draw_stateful_child(&self.map_dragger, state);
+        area.draw_stateful_child(&self.map_container, state);
     }
 }
 
@@ -87,19 +89,19 @@ impl MountableLayout for Game {
     fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
     fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout> { 
         match i {
-            0 => Some(self.map_dragger.as_trait_ref()),
+            0 => Some(self.map_container.as_trait_ref()),
             _ => None
         } 
     }
     fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout> { 
         match i {
-            0 => Some(self.map_dragger.as_trait_mut()),
+            0 => Some(self.map_container.as_trait_mut()),
             _ => None
         } 
     }
 
-    fn relayout(&mut self, relayout: ScreenRelayout) {
-        let space = relayout.absolute_layout_space.to_rect();
+    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
+        let space = relayout.get_absolute_layout_of(self).to_rect();
         let rects = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(space.width.saturating_sub(39)), Constraint::Min(39)].as_ref())
@@ -124,9 +126,9 @@ impl MountableLayout for Game {
                 .borders(Borders::ALL)
                 .inner(self.regions.map)
         );
-        self.map_dragger.layout.set_size(UDim2::from_size2d(map_space.size));
-        self.map_dragger.layout.set_position(UDim2::from_point2d(map_space.position));
+        self.map_container.layout.set_size(UDim2::from_size2d(map_space.size));
+        self.map_container.layout.set_position(UDim2::from_point2d(map_space.position));
         
-        self.relayout_children(relayout);
+        relayout.children_of(self.as_trait_mut());
     }
 }

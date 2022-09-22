@@ -1,13 +1,14 @@
 use super::{
     draw::*,
     space::*,
-    mount::*
+    mount::*,
+    iter::*, anim::Animatable
 };
 
 use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
 use tui::{
     layout::Rect,
-    buffer::Buffer,
+    buffer::{Buffer, Cell},
     widgets::{Widget, StatefulWidget}, style::Color
 };
 use unicode_segmentation::UnicodeSegmentation;
@@ -15,7 +16,8 @@ use unicode_segmentation::UnicodeSegmentation;
 #[derive(Debug)]
 pub struct Screen<T: MountableLayout + StatefulDrawable> {
     pub root: T,
-    pub input: ScreenInput
+    pub input: ScreenInputService,
+    pub animation: ScreenAnimationService
 }
 
 impl<T: MountableLayout + StatefulDrawable> Screen<T> {
@@ -24,7 +26,8 @@ impl<T: MountableLayout + StatefulDrawable> Screen<T> {
 
         Screen {
             root,
-            input: ScreenInput::default()
+            input: ScreenInputService::default(),
+            animation: ScreenAnimationService::default()
         }
     }
 
@@ -35,13 +38,13 @@ impl<T: MountableLayout + StatefulDrawable> Screen<T> {
     }
 
     fn relayout_root(&mut self, absolute_screen_space: AbsoluteSpace) {
-        self.root.relayout(ScreenRelayout {
+        ScreenRelayout {
             id: self.root.mount_ref().id,
-            absolute_layout_space: self.root.to_absolute_layout_space(absolute_screen_space),
             parent_absolute_draw_space: absolute_screen_space,
             parent_absolute_layout_space: absolute_screen_space,
-            input: &mut self.input
-        });
+            input: &mut self.input,
+            animation: &mut self.animation
+        }.execute_on(&mut self.root);
     }
 
     fn draw_root(&self, absolute_screen_space: AbsoluteSpace, buf: &mut Buffer, state: &<T as StatefulDrawable>::State) {
@@ -76,19 +79,66 @@ impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for ScreenWidget<
 #[derive(Debug)]
 pub struct ScreenRelayout<'a> {
     pub id: MountId,
-    pub absolute_layout_space: AbsoluteSpace,
     pub parent_absolute_draw_space: AbsoluteSpace,
     pub parent_absolute_layout_space: AbsoluteSpace,
-    pub input: &'a mut ScreenInput
+    pub input: &'a mut ScreenInputService,
+    pub animation: &'a mut ScreenAnimationService
 }
 
 impl<'a> ScreenRelayout<'a> {
+    pub fn execute_on(&mut self, mountable: &mut dyn MountableLayout) {
+        let layout = mountable.layout_mut();
+        if let Some(anim) = layout.anim.as_mut() {
+            anim.step(&mut layout.space, self.animation);
+        }
+
+        mountable.relayout(self);
+    }
+
     /*
      * Restricts space of the given Layoutable to not exceed the bounds of the parent's absolute draw space
      * Returns Option because the restrictions could lead to no drawable space (layout out of bounds of parent drawing space)
      */
-    pub fn restrict_absolute_layout_space(&self, subarea_absolute_layout_space: AbsoluteSpace) -> Option<AbsoluteSpace> {
+    pub fn get_draw_space_of(&self, subarea_absolute_layout_space: AbsoluteSpace) -> Option<AbsoluteSpace> {
         self.parent_absolute_draw_space.try_intersection(subarea_absolute_layout_space)
+    }
+
+    pub fn get_absolute_layout_of(&self, layoutable: &dyn Layoutable) -> AbsoluteSpace {
+        layoutable.to_absolute_layout_space(self.parent_absolute_layout_space)
+    }
+
+    pub fn children_of(&mut self, mountable: &mut dyn MountableLayout) {
+        let transformed_absolute_layout_space = mountable.to_absolute_layout_space(self.parent_absolute_layout_space);
+        self.children_in_space_of(mountable, transformed_absolute_layout_space);
+    }
+
+    pub fn children_in_space_of(&mut self, mountable: &mut dyn MountableLayout, transformed_absolute_layout_space: AbsoluteSpace) {
+        let absolute_layout_space = mountable.to_absolute_layout_space(self.parent_absolute_layout_space);
+        if let Some(absolute_draw_space) = self.get_draw_space_of(absolute_layout_space) {
+            let mut itr = mountable.child_iter_mut();
+            while let Some(child) = itr.next() {
+                ScreenRelayout {
+                    id: child.mount_ref().id,
+                    parent_absolute_draw_space: absolute_draw_space,
+                    parent_absolute_layout_space: transformed_absolute_layout_space,
+                    input: self.input,
+                    animation: self.animation
+                }.execute_on(child);
+            }
+        }
+    }
+
+    pub fn input_space_of(&mut self, mountable: &mut dyn MountableLayout, input_space: Space) {
+        let absolute_layout_space = mountable.to_absolute_layout_space(self.parent_absolute_layout_space);
+        if let Some(absolute_draw_space) = self.get_draw_space_of(absolute_layout_space) {
+            if let Some(input_absolute_interactable_space) = 
+                input_space
+                    .to_absolute_space(absolute_layout_space)
+                    .try_intersection(absolute_draw_space) 
+            {
+                self.input.update(self.id, input_absolute_interactable_space);
+            }
+        }
     }
 }
 
@@ -101,6 +151,10 @@ pub struct ScreenArea<'a> {
 impl<'a> ScreenArea<'a> {
     pub fn transform(self, absolute_layout_space: AbsoluteSpace) -> ScreenArea<'a> {
         ScreenArea { absolute_layout_space, ..self }
+    }
+
+    pub fn iter_cells_mut(&mut self) -> ScreenCellIterMut {
+        ScreenCellIterMut { buf: self.buf, itr: self.absolute_draw_space.into_iter() }
     }
 
     pub fn draw_child<T: Drawable>(&mut self, child: &T) {
@@ -189,6 +243,25 @@ impl<'a> ScreenArea<'a> {
     }
 }
 
+pub struct ScreenCellIterMut<'a> {
+    buf: &'a mut Buffer,
+    itr: AbsoluteSpaceIterator    
+}
+
+impl<'a> CustomIterator for ScreenCellIterMut<'a> {
+    type Item = MutRefFamily<Cell>;
+    fn next<'s>(&'s mut self) -> Option<<Self::Item as FamilyLt<'s>>::Out> {
+        if let Some(point) = self.itr.next() {
+            Some(self.buf.get_mut(
+                u16::try_from(point.x).unwrap(), 
+                u16::try_from(point.y).unwrap()
+            ))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Input {
     id: MountId,
@@ -196,7 +269,7 @@ pub struct Input {
 }
 
 #[derive(Debug, Default)]
-pub struct ScreenInput {
+pub struct ScreenInputService {
     inputs: Vec<Input>,
     current_input_id: Option<MountId>,
     valid_input_count: usize,
@@ -219,7 +292,7 @@ pub enum ScreenInputEventKind {
     Up(Point2D)
 }
 
-impl ScreenInput {
+impl ScreenInputService {
     fn invalidate_all_inputs(&mut self) {
         self.valid_input_count = 0;
     }
@@ -337,5 +410,22 @@ impl ScreenInput {
         }
 
         should_rerender
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ScreenAnimationService {
+    animation_count: usize
+}
+
+impl ScreenAnimationService {
+    pub fn sub(&mut self) {
+        self.animation_count = self.animation_count.saturating_sub(1);
+    }
+    pub fn add(&mut self) {
+        self.animation_count += 1;
+    }
+    pub fn contains_any(&self) -> bool {
+        self.animation_count > 0
     }
 }

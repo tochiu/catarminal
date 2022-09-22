@@ -2,6 +2,10 @@ use std::cmp::{max, min};
 use std::ops::Add;
 use tui::layout::Rect;
 
+pub trait Lerp {
+    fn lerp(self, to: Self, alpha: f32) -> Self;
+}
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Point2D {
     pub x: i16,
@@ -24,10 +28,29 @@ impl Add<Point2D> for Point2D {
     }
 }
 
+impl Lerp for Point2D {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        Point2D { 
+            x: self.x + ((to.x as f32 - self.x as f32)*alpha).round() as i16,
+            y: self.y + ((to.y as f32 - self.y as f32)*alpha).round() as i16
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Size2D {
     pub x: u16,
     pub y: u16
+}
+
+impl Size2D {
+    pub const fn new(x: u16, y: u16) -> Self {
+        Size2D { x, y }
+    }
+
+    pub fn area(self) -> u16 {
+        self.x.checked_mul(self.y).unwrap()
+    }
 }
 
 impl Add<Size2D> for Size2D {
@@ -40,13 +63,12 @@ impl Add<Size2D> for Size2D {
     }
 }
 
-impl Size2D {
-    pub const fn new(x: u16, y: u16) -> Self {
-        Size2D { x, y }
-    }
-
-    pub fn area(self) -> u16 {
-        self.x.checked_mul(self.y).unwrap()
+impl Lerp for Size2D {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        Size2D { 
+            x: self.x + ((to.x as f32 - self.x as f32)*alpha).round() as u16,
+            y: self.y + ((to.x as f32 - self.x as f32)*alpha).round() as u16
+        }
     }
 }
 
@@ -63,6 +85,15 @@ impl Scale2D {
     }
 }
 
+impl Lerp for Scale2D {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        Scale2D { 
+            x: self.x + (to.x - self.x)*alpha, 
+            y: self.y + (to.y - self.y)*alpha
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UDim {
     pub scale: f32,
@@ -72,6 +103,15 @@ pub struct UDim {
 impl UDim {
     pub const fn new(scale: f32, offset: i16) -> Self {
         UDim { scale, offset }
+    }
+}
+
+impl Lerp for UDim {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        UDim { 
+            scale: self.scale + (to.scale - self.scale)*alpha, 
+            offset: self.offset + ((to.offset as f32 - self.offset as f32)*alpha).round() as i16
+        }
     }
 }
 
@@ -109,6 +149,15 @@ impl UDim2 {
             i16::try_from(size.x).unwrap(), 
             i16::try_from(size.y).unwrap()
         )
+    }
+}
+
+impl Lerp for UDim2 {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        UDim2 { 
+            x: self.x.lerp(to.x, alpha), 
+            y: self.y.lerp(to.y, alpha) 
+        }
     }
 }
 
@@ -215,6 +264,15 @@ impl AbsoluteSpace {
     }
 }
 
+impl Lerp for AbsoluteSpace {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        AbsoluteSpace { 
+            size: self.size.lerp(to.size, alpha), 
+            position: self.position.lerp(to.position, alpha) 
+        }
+    }
+}
+
 impl IntoIterator for AbsoluteSpace {
     type Item = Point2D;
     type IntoIter = AbsoluteSpaceIterator;
@@ -299,6 +357,16 @@ impl Space {
             size: self.size,
             position: UDim2::CENTER,
             anchor: Scale2D::CENTER
+        }
+    }
+}
+
+impl Lerp for Space {
+    fn lerp(self, to: Self, alpha: f32) -> Self {
+        Space { 
+            size: self.size.lerp(to.size, alpha), 
+            position: self.position.lerp(to.position, alpha),
+            anchor: self.anchor.lerp(to.anchor, alpha) 
         }
     }
 }
