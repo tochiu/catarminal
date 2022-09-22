@@ -8,27 +8,64 @@ use super::{
         screen::*,
         mount::*,
         shape::*,
+        anim::*,
         iter::CustomIterator
     }
 };
 
-use tui::style::Color;
+use crate::enums;
+
+use tui::style::{Color, Style};
 
 pub const MAP_SAND_COLOR: Color = Color::Rgb(221, 178, 100);
 pub const MAP_OCEAN_COLOR: Color = Color::Rgb(9, 103, 166);
+
+const ROBBER_OFFSET: Point2D = Point2D::new(9, -4); // robber offset from tile offset
+
+lazy_static! {
+    static ref ROBBER_BITSHAPE: BitShape128 = BitShape128::new(0b011101111101110111111111111111, Size2D::new(5, 6));
+    static ref ROBBER_STYLE: Style = Style::default().bg(Color::Magenta);
+}
 
 #[derive(Debug)]
 pub struct Map {
     bkg: &'static StringShape<'static>,
     tiles: Vec<Tile>,
     ports: Vec<Port>,
+    robber: DrawLeaf<Shape128>,
     layout: DrawLayout,
     mount: Mount
 }
 
 impl Map {
     pub fn new(tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
-        let mut map = Map { tiles, ports, bkg: &parse::MAP_BKG_SHAPE, layout: DrawLayout::default(), mount: Mount::default() };
+        let robber_init_tile_position = parse::MAP_GRAPH.tile_points
+            .get(
+                tiles
+                    .iter()
+                    .position(|tile| tile.resource == enums::TileResource::OfDesert)
+                    .unwrap_or(0)
+            )
+            .cloned()
+            .unwrap_or_default();
+
+        let robber = DrawLeaf::new(
+            Shape128::new(&ROBBER_BITSHAPE, " ", *ROBBER_STYLE, DrawLayout::FULL), 
+            DrawLayout::default()
+                .set_size(UDim2::from_size2d(ROBBER_BITSHAPE.size))
+                .set_anchor(Scale2D::new(0.5, 1.0))
+                .set_position(UDim2::from_point2d(robber_init_tile_position + ROBBER_OFFSET))
+                .clone()
+        );
+        
+        let mut map = Map { 
+            tiles, 
+            ports, 
+            robber, 
+            bkg: &parse::MAP_BKG_SHAPE,
+            layout: DrawLayout::default(), 
+            mount: Mount::default() 
+        };
 
         map.layout.set_size(UDim2::from_size2d(parse::MAP_BKG_DRAW_STRING.size));
         for (i, tile) in map.tiles.iter_mut().enumerate() {
@@ -42,6 +79,16 @@ impl Map {
         }
 
         map
+    }
+
+    pub fn move_robber(&mut self, tile_index: usize, anim_service: &mut ScreenAnimationService) {
+        let mut to = self.robber.layout.space;
+        to.position = UDim2::from_point2d(parse::MAP_GRAPH.tile_points[tile_index] + ROBBER_OFFSET);
+        if self.robber.layout.space == to {
+            return
+        }
+
+        self.robber.animate_space(anim_service, to, 1.0, EasingStyle::Cubic, EasingDirection::InOut);
     }
 }
 
@@ -69,6 +116,7 @@ impl Drawable for Map {
         }
         area.draw_children(&self.tiles);
         area.draw_children(&self.ports);
+        area.draw_child(&self.robber);
     }
 }
 
@@ -82,6 +130,16 @@ impl StatefulDrawable for Map {
 impl MountableLayout for Map {
     fn mount_ref(&self) -> &Mount { &self.mount }
     fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
-    fn child_ref(&self, _: usize) -> Option<&dyn MountableLayout> { None }
-    fn child_mut(&mut self, _: usize) -> Option<&mut dyn MountableLayout> { None }
+    fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout> {
+        match i {
+            0 => Some(self.robber.as_trait_ref()),
+            _ => None
+        }
+    }
+    fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout> {
+        match i {
+            0 => Some(self.robber.as_trait_mut()),
+            _ => None
+        }
+    }
 }

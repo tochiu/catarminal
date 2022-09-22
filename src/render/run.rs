@@ -1,5 +1,3 @@
-use crate::enums;
-
 use super::{
     drawing::{
         map::{self, Map, Tile, Port},
@@ -9,13 +7,15 @@ use super::{
     draw::NoDrawState
 };
 
+use crate::enums;
+
 use crossterm::{
     event::{poll, read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEvent},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
-use std::{io, time::Duration};
+use std::{io, time::Duration, sync::{Arc, Mutex}, thread, ops::DerefMut};
 use tui::{
     backend::{CrosstermBackend},
     Terminal, widgets::*, 
@@ -48,7 +48,26 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         .map(|resource| Port::new(resource)) // we want ports containing these resources
         .collect();
 
-    let mut game_screen = Screen::new(Game::new(Map::new(tiles, ports)));
+    let game_screen_resource = Arc::new(Mutex::new(Screen::new(Game::new(Map::new(tiles, ports)))));
+
+    { // test robber animation
+        let game_screen_mutex = Arc::clone(&game_screen_resource);
+        thread::spawn(move || {
+            let mut rng = rand::thread_rng();
+            loop {
+                thread::sleep(Duration::from_secs(1));
+                let mut guard = game_screen_mutex.lock().unwrap();
+                let game_screen = guard.deref_mut();
+                
+                game_screen.root.map_dragger.drawing.move_robber(
+                    rng.gen_range(0..*map::MAP_PORT_CAPACITY), 
+                    &mut game_screen.animation
+                );
+            }
+        });
+    }
+
+    let game_screen_mutex = Arc::clone(&game_screen_resource);
 
     // setup terminal
     enable_raw_mode()?;
@@ -89,6 +108,8 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
         // game a lock of the game_screen here
         //let mut game_screen = game_screen_mutex.lock().unwrap();
+        let mut guard = game_screen_mutex.lock().unwrap();
+        let game_screen = guard.deref_mut();
 
         delay_ms = if game_screen.animation.contains_any() { 0 } else { DEFAULT_REDRAW_DELAY_MS };
         should_render = should_render || game_screen.animation.contains_any();

@@ -108,10 +108,8 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct Tile {
-
     pub layout: DrawLayout,
-
-    resource: enums::TileResource,
+    pub resource: enums::TileResource,
     bkg: Shape,
     rarity: Option<Shape128>, 
     digits: (Option<Shape128>, Option<Shape128>)
