@@ -1,4 +1,4 @@
-use super::{
+use super::super::{
     space::*,
     draw::*, 
     screen::*
@@ -177,7 +177,7 @@ impl<'a> DrawableString<'a> {
     pub fn iter(&self) -> DrawableStringIterator {
         DrawableStringIterator { 
             shape: self, 
-            graphemes: self.lines[0].graphemes(false), 
+            graphemes: self.lines[0].graphemes(true), 
             x: 0, 
             y: 0
         }
@@ -204,7 +204,7 @@ impl<'a> Iterator for DrawableStringIterator<'a> {
             self.x = 0;
             self.y += 1;
             while self.y < self.shape.size.y {
-                self.graphemes = self.shape.lines[self.y as usize].graphemes(false);
+                self.graphemes = self.shape.lines[self.y as usize].graphemes(true);
                 if let Some(grapheme) = self.graphemes.next() {
                     let result = Some((self.x, self.y, grapheme));
                     self.x += 1;

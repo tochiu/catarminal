@@ -9,7 +9,7 @@ use crossterm::event::{MouseEvent, MouseEventKind, MouseButton};
 use tui::{
     layout::Rect,
     buffer::{Buffer, Cell},
-    widgets::{Widget, StatefulWidget}, style::Color
+    widgets::{Widget, StatefulWidget}, style::Style
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -64,7 +64,9 @@ pub struct ScreenWidget<'a, T: MountableLayout + StatefulDrawable> {
     screen: &'a mut Screen<T>
 }
 
-impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for ScreenWidget<'a, T> {
+impl<'a, T: MountableLayout + StatefulDrawable> StatefulWidget for ScreenWidget<'a, T>
+    where T::State: Sized 
+{
     type State = T::State;
     fn render(self, rect: Rect, buf: &mut Buffer, state: &mut T::State) {
         let absolute_screen_space = AbsoluteSpace::from_rect(rect);
@@ -157,6 +159,15 @@ impl<'a> ScreenArea<'a> {
         ScreenCellIterMut { buf: self.buf, itr: self.absolute_draw_space.into_iter() }
     }
 
+    pub fn transform_cells<F>(&mut self, mut f: F) 
+        where F: FnMut(&mut Cell)
+    {
+        let mut itr = self.iter_cells_mut();
+        while let Some(cell) = itr.next() {
+            f(cell);
+        }
+    }
+
     pub fn draw_child<T: Drawable>(&mut self, child: &T) {
         let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
         if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
@@ -188,7 +199,9 @@ impl<'a> ScreenArea<'a> {
         }
     }
 
-    pub fn draw_stateful_children<T: StatefulDrawable>(&mut self, children: &[T], states: &[T::State]) {
+    pub fn draw_stateful_children<T: StatefulDrawable>(&mut self, children: &[T], states: &[T::State])
+        where T::State: Sized 
+    {
         for (child, state) in std::iter::zip(children, states) {
             self.draw_stateful_child(child, state);
         }
@@ -202,7 +215,7 @@ impl<'a> ScreenArea<'a> {
         widget.render(rect, self.buf, &mut state)
     }
 
-    pub fn draw_string_line(&mut self, line: &str, position: Point2D, color: Color) {
+    pub fn draw_string_line(&mut self, line: &str, position: Point2D, style: Style) {
         let absolute_line_layout_space = AbsoluteSpace {
             position: self.absolute_layout_space.absolute_position_of(position),
             size: Size2D::new(u16::try_from(line.len()).unwrap_or(u16::MAX), 1)
@@ -216,29 +229,29 @@ impl<'a> ScreenArea<'a> {
                 absolute_line_draw_space.position.y as u16
             );
             for (i, c) in line[range_lb..range_ub].chars().enumerate() {
-                self.buf.content[buf_index + i].set_char(c).set_fg(color);
+                self.buf.content[buf_index + i].set_char(c).set_style(style);
             }
         }
     }
 
-    pub fn draw_unicode_line(&mut self, line: &str, pos: Point2D, color: Color) {
+    pub fn draw_unicode_line(&mut self, line: &str, pos: Point2D, style: Style) {
         let bufy = self.absolute_layout_space.top() + pos.y;
         let bufx = self.absolute_layout_space.left() + pos.x;
+
+        
         if 
             bufy >= self.absolute_draw_space.top() && 
             bufy < self.absolute_draw_space.bottom() &&
             bufx < self.absolute_draw_space.right()
         {
-            let bufx = self.absolute_layout_space.left() + pos.x;
-            let index = self.buf.index_of((bufx + (self.absolute_draw_space.left() - bufx).max(0)) as u16, bufy as u16);
-            for (i, grapheme) in 
-                line.graphemes(false)
-                    .skip((self.absolute_draw_space.left() - bufx).max(0) as usize)
-                    .take((self.absolute_draw_space.right() - bufx).max(0) as usize)
-                    .enumerate()
-            {
-                self.buf.content[index + i].set_symbol(grapheme).set_fg(color);
-            }
+            // TODO: refactor this hot garbage
+            self.buf.set_stringn(
+                (bufx + (self.absolute_draw_space.left() - bufx).max(0)) as u16, 
+                bufy as u16, 
+                &line.graphemes(true).skip((self.absolute_draw_space.left() - bufx).max(0) as usize).collect::<String>(), 
+                (self.absolute_draw_space.right() - bufx).max(0) as usize, 
+                style
+            );
         }
     }
 }

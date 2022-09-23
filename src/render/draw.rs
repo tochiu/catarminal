@@ -20,7 +20,7 @@ pub trait Drawable: std::fmt::Debug + Layoutable {
 }
 
 pub trait StatefulDrawable: std::fmt::Debug + Layoutable {
-    type State;
+    type State: ?Sized;
     fn stateful_draw(&self, area: ScreenArea, state: &Self::State);
 }
 

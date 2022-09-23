@@ -1,11 +1,17 @@
 use super::{
     map::{self, Map},
+    drag::Dragger,
     super::{
-        drag::Dragger,
         draw::*,
         mount::*,
         screen::*, 
         space::*
+    }, 
+    players::{
+        self,
+        PlayerFrame, 
+        PlayerFrameState, 
+        PlayerList
     }
 };
 
@@ -27,7 +33,8 @@ struct GameRegions {
 pub struct Game {
     mount: Mount,
     layout: DrawLayout,
-    regions: GameRegions,
+    players: PlayerList,
+    regions: GameRegions,    
 
     pub map_dragger: Dragger<Map>,
 }
@@ -38,7 +45,27 @@ impl Game {
             mount: Mount::default(),
             layout: DrawLayout::FULL,
             map_dragger: Dragger::new(map, Style::default().bg(map::MAP_OCEAN_COLOR)),
-            regions: GameRegions::default()
+            regions: GameRegions::default(),
+            players: PlayerList::new(
+                vec![
+                    PlayerFrame::new(
+                        String::from("Siegward"), 
+                        Color::Red, 
+                        DrawLayout::default()
+                    ),
+                    PlayerFrame::new(
+                        String::from("Rusuban"), 
+                        Color::Green, 
+                        DrawLayout::default()
+                    ),
+                    PlayerFrame::new(
+                        String::from("Boneless Pizza"), 
+                        Color::Blue, 
+                        DrawLayout::default()
+                    )
+                ], 
+                DrawLayout::FULL
+            )
         }
     }
 }
@@ -81,6 +108,29 @@ impl StatefulDrawable for Game {
         );
         
         area.draw_stateful_child(&self.map_dragger, state);
+        area.draw_stateful_child(&self.players, &[
+            PlayerFrameState {
+                victory_point_count: 10,
+                largest_army_count: 3,
+                longest_road_count: 14,
+                resource_card_count: 22,
+                development_card_count: 9
+            },
+            PlayerFrameState {
+                victory_point_count: 10,
+                largest_army_count: 3,
+                longest_road_count: 14,
+                resource_card_count: 22,
+                development_card_count: 9
+            },
+            PlayerFrameState {
+                victory_point_count: 10,
+                largest_army_count: 3,
+                longest_road_count: 14,
+                resource_card_count: 22,
+                development_card_count: 9
+            }
+        ]);
     }
 }
 
@@ -107,9 +157,10 @@ impl MountableLayout for Game {
             .constraints([Constraint::Length(space.width.saturating_sub(39)), Constraint::Min(39)].as_ref())
             .split(space);
 
+        let player_list_height = (self.players.frames.len() as u16)*(players::PLAYER_FRAME_SIZE.y.offset as u16) + 2;
         let right_pane_rects = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(rects[1].height.saturating_sub(5*4)), Constraint::Min(5*4)].as_ref())
+            .constraints([Constraint::Length(rects[1].height.saturating_sub(player_list_height)), Constraint::Min(player_list_height)].as_ref())
             .split(rects[1]);
         let chat_event_rects = Layout::default()
             .direction(Direction::Vertical)
@@ -128,6 +179,14 @@ impl MountableLayout for Game {
         );
         self.map_dragger.layout.set_size(UDim2::from_size2d(map_space.size));
         self.map_dragger.layout.set_position(UDim2::from_point2d(map_space.position));
+
+        let players_space = AbsoluteSpace::from_rect(
+            Block::default()
+                .borders(Borders::ALL)
+                .inner(self.regions.players)
+        );
+        self.players.layout.set_position(UDim2::from_point2d(players_space.position));
+        self.players.layout.set_size(UDim2::from_size2d(players_space.size));
         
         relayout.children_of(self.as_trait_mut());
     }

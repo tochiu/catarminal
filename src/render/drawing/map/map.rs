@@ -2,14 +2,16 @@ use super::{
     parse,
     tile::Tile,
     port::{self, Port},
-    super::super::{
-        space::*,
-        draw::*,
-        screen::*,
-        mount::*,
-        shape::*,
-        anim::*,
-        iter::CustomIterator
+    super::{
+        shape::*, 
+        super::{
+            space::*,
+            draw::*,
+            screen::*,
+            mount::*,
+            anim::*,
+            iter::CustomIterator
+        }
     }
 };
 
@@ -20,7 +22,7 @@ use tui::style::{Color, Style};
 pub const MAP_SAND_COLOR: Color = Color::Rgb(221, 178, 100);
 pub const MAP_OCEAN_COLOR: Color = Color::Rgb(9, 103, 166);
 
-const ROBBER_OFFSET: Point2D = Point2D::new(9, -4); // robber offset from tile offset
+const ROBBER_OFFSET: Point2D = Point2D::new(8, -4); // robber offset from tile offset
 
 lazy_static! {
     static ref ROBBER_BITSHAPE: BitShape128 = BitShape128::new(0b011101111101110111111111111111, Size2D::new(5, 6));
@@ -87,7 +89,7 @@ impl Map {
         if self.robber.layout.space == to {
             return
         }
-
+        log::info!("animating robber!");
         self.robber.animate_space(anim_service, to, 1.0, EasingStyle::Cubic, EasingDirection::InOut);
     }
 }

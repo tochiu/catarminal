@@ -1,8 +1,10 @@
-use super::super::super::{
+use super::super::{
     shape::*,
-    draw::*,
-    space::*,
-    screen::*
+    super::{
+        draw::*,
+        space::*,
+        screen::*
+    }
 };
 
 use crate::enums;
@@ -213,6 +215,10 @@ impl Drawable for Tile {
         if let Some(digit) = &self.digits.1 {
             area.draw_child(digit);
         }
-        area.draw_unicode_line(self.resource.get_symbol(), TILE_SYMBOL_OFFSET, self.resource.get_color());
+        area.draw_unicode_line(
+            self.resource.get_symbol(), 
+            TILE_SYMBOL_OFFSET, 
+            Style::default().fg(self.resource.get_color())
+        );
     }
 }

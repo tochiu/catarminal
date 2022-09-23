@@ -1,9 +1,11 @@
 use super::{
     tile,
-    super::super::{
-        space::*,
-        draw::*,
-        shape::*
+    super::{
+        shape::*, 
+        super::{
+            space::*,
+            draw::*,
+        }
     }
 };
 

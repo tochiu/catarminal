@@ -7,11 +7,11 @@ use super::super::super::{
 
 use crate::enums;
 
-use tui::style::Color;
+use tui::style::{Color, Style};
 
 const PORT_SIZE: Size2D = Size2D::new(3, 2);
-const PORT_SYMBOL_ANY_OFFSET: Point2D = Point2D::new(1, 0);
-const PORT_SYMBOL_RESOURCE_OFFSET: Point2D = Point2D::new(0, 0);
+const PORT_ANY_SYMBOL_OFFSET: Point2D = Point2D::new(1, 0);
+const PORT_RESOURCE_SYMBOL_OFFSET: Point2D = Point2D::new(0, 0);
 const PORT_RATIO_OFFSET: Point2D = Point2D::new(0, 1);
 
 pub const PORT_BOARDWALK_COLOR: Color = Color::Rgb(221, 149, 47);
@@ -25,10 +25,10 @@ pub struct Port {
 
 impl Port {
     pub fn new(resource: enums::PortResource) -> Self {
-        let (num_give, num_get) = resource.get_ratio();
+        let (num_give, num_take) = resource.get_ratio();
         Port {
             resource,
-            ratio: [char::from_digit(num_give, 10).unwrap(), ':', char::from_digit(num_get, 10).unwrap()].iter().collect(),
+            ratio: [char::from_digit(num_give, 10).unwrap(), ':', char::from_digit(num_take, 10).unwrap()].iter().collect(),
             layout: DrawLayout::default()
                 .set_size(UDim2::from_size2d(PORT_SIZE))
                 .set_anchor(Scale2D::new(0.5, 0.0))
@@ -52,10 +52,10 @@ impl Drawable for Port {
         area.draw_unicode_line(
             self.resource.get_symbol(), 
             if self.resource == enums::PortResource::OfAnyKind 
-                { PORT_SYMBOL_ANY_OFFSET } else 
-                { PORT_SYMBOL_RESOURCE_OFFSET }, 
-            Color::White
+                { PORT_ANY_SYMBOL_OFFSET } else 
+                { PORT_RESOURCE_SYMBOL_OFFSET }, 
+            Style::default().fg(Color::White)
         );
-        area.draw_string_line(&self.ratio, PORT_RATIO_OFFSET, Color::White);
+        area.draw_string_line(&self.ratio, PORT_RATIO_OFFSET, Style::default().fg(Color::White));
     }
 }
