@@ -32,7 +32,7 @@ pub struct MapGraph {
 
 lazy_static! {
     pub static ref MAP_CONTENT: String = {
-        let mut file = File::open("./assets/map.txt").expect("Cannot open the file");
+        let mut file = File::open("./res/map.txt").expect("Cannot open the file");
         let mut file_str = String::new();
         file.read_to_string(&mut file_str).expect("Cannot read the file");
         file_str
