@@ -109,26 +109,27 @@ impl StatefulDrawable for Game {
         
         area.draw_stateful_child(&self.map_dragger, state);
         area.draw_stateful_child(&self.players, &[
+            // TEST DATA
             PlayerFrameState {
-                victory_point_count: 10,
-                largest_army_count: 3,
-                longest_road_count: 14,
-                resource_card_count: 22,
-                development_card_count: 9
+                victory_point_count: 9,
+                largest_army_count: 2,
+                longest_road_count: 3,
+                resource_card_count: 7,
+                development_card_count: 0
             },
             PlayerFrameState {
                 victory_point_count: 10,
-                largest_army_count: 3,
-                longest_road_count: 14,
+                largest_army_count: 5,
+                longest_road_count: 8,
                 resource_card_count: 22,
-                development_card_count: 9
+                development_card_count: 6
             },
             PlayerFrameState {
-                victory_point_count: 10,
-                largest_army_count: 3,
-                longest_road_count: 14,
-                resource_card_count: 22,
-                development_card_count: 9
+                victory_point_count: 4,
+                largest_army_count: 0,
+                longest_road_count: 0,
+                resource_card_count: 0,
+                development_card_count: 0
             }
         ]);
     }
