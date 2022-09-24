@@ -8,7 +8,7 @@ use rand::{
 const WOOL_RESOURCE_COLOR: Color = Color::Rgb(140, 181, 014);
 const WHEAT_RESOURCE_COLOR: Color = Color::Rgb(224, 175, 51);
 const BRICK_RESOURCE_COLOR: Color = Color::Rgb(223, 97, 40);
-const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(19, 149, 58);
+const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(9, 74, 29);
 const ORE_RESOURCE_COLOR: Color = Color::Rgb(164, 170, 166);
 const DESERT_RESOURCE_COLOR: Color = Color::Rgb(217, 210, 149);
 
