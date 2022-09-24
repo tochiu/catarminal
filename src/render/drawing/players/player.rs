@@ -110,15 +110,12 @@ impl StatefulDrawable for PlayerFrame {
     type State = PlayerFrameState;
 
     fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
-        // area.transform_cells(|cell| {
-        //     cell.set_style(Style::default().bg(Color::Rgb(236, 228, 215)));
-        // });
         area.draw_stateful_child(&self.army_counter, &state.largest_army_count);
         area.draw_stateful_child(&self.road_counter, &state.longest_road_count);
         area.draw_stateful_child(&self.resource_counter, &state.resource_card_count);
         area.draw_stateful_child(&self.development_counter, &state.development_card_count);
 
-        let vp_string = format!("🏆: {}", state.victory_point_count);
+        let vp_string = &format!("🏆: {:0width$}", state.victory_point_count.min(99), width = 2 as usize);
 
         area.draw_unicode_line(
             &vp_string,
