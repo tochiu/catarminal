@@ -1,3 +1,11 @@
+/*
+ * mount.rs
+ * a module of constructs that define a mountable layout
+ * a mountable layout is a layout that can be found by its screen
+ * this property allows them to communicate with the screen to capture input or trigger a rerender
+ * mountable layouts are the only layouts that execute a relayout because relayouts can mutate screen state
+ */
+
 use super::{
     draw::*, 
     screen::*, 
@@ -6,8 +14,34 @@ use super::{
     anim::*
 };
 
+/* mount identifier */
 pub type MountId = u64;
 
+/* a mount defines its id and number of children (this is required to create child mounts) */
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Mount {
+    pub id: MountId,
+    pub children: u8
+}
+
+impl Mount {
+    /* create the mount for a child mountable */
+    fn fork(&mut self) -> Mount {
+        self.children += 1;
+        Mount { 
+            id: MountFinder::new(self.id).push(self.children).id, 
+            children: 0
+        }
+    }
+}
+
+/* 
+ * mount ids encode how to get to them from the root drawing of the screen 
+ * by storing the index of the drawing to query at each level in a byte 
+ * since MountId is a typdef'd u64, a maximum of 8 ancestors is allowed for a mount
+ * 
+ * MountFinder is a utility struct used with methods useful for finding mounts using their ids
+ */
 #[derive(Copy, Clone, Debug)]
 pub struct MountFinder {
     id: MountId
@@ -25,6 +59,8 @@ impl MountFinder {
     pub fn next(self) -> MountFinder {
         MountFinder { id: self.id >> u8::BITS }
     }
+
+    /* creating a mountfinder from a mountid and pushing an index into the id is the way child mount ids are made (seek Mount::fork) */
     pub fn push(self, index: u8) -> MountFinder {
         MountFinder { id: self.id | (index as MountId) << u8::BITS*self.depth() }
     }
@@ -33,7 +69,8 @@ impl MountFinder {
     }
 }
 
-pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
+/* MountableLayout's must be static because the CustomIterator trait the child iterator implement require that the item type is static */
+pub trait MountableLayout: Layoutable + std::fmt::Debug + AsMountableLayout + 'static {
 
     // implement
 
@@ -49,6 +86,7 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
     
     // required / utility
 
+    /* animate the layout of the mountable */
     fn animate_space(&mut self, service: &mut ScreenAnimationService, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
         let mut layout = self.layout_mut();
         if let Some(anim) = layout.anim.as_mut() {
@@ -58,6 +96,7 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         layout.anim = Some(Box::new(SpaceAnimation::new(service, layout.space, to, duration, style, direction)));
     }
 
+    /* set the mount of the mountable and mount its descendants */
     fn mount(&mut self, mut mount: Mount) {
         let mut itr = self.child_iter_mut();
         while let Some(child) = itr.next() {
@@ -67,20 +106,23 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         *self.mount_mut() = mount;
     }
 
+    /* get iterator for mounts children */
     fn child_iter(&self) -> MountChildIter {
         MountChildIter { 
-            drawing: self.as_trait_ref(), 
+            mountable: self.as_trait_ref(), 
             index: 0
         }
     }
 
+    /* same as child_iter but mutable */
     fn child_iter_mut(&mut self) -> MountChildIterMut {
         MountChildIterMut { 
-            drawing: self.as_trait_mut(),
+            mountable: self.as_trait_mut(),
             index: 0
         }
     }
 
+    /* get a reference to a descendant using the given MountFinder */
     fn find_descendant_ref(&self, finder: MountFinder) -> Option<&dyn MountableLayout> {
         let index = finder.peek();
 
@@ -95,6 +137,7 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
+    /* same as find_descendant_mut but mutable */
     fn find_descendant_mut(&mut self, finder: MountFinder) -> Option<&mut dyn MountableLayout> {
         let index = finder.peek();
 
@@ -109,39 +152,27 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsTrait + 'static {
         }
     }
 
+    /* default relayout implementation is to just relayout the children */
     fn relayout(&mut self, relayout: &mut ScreenRelayout) {
         relayout.children_of(self.as_trait_mut());
     }
 }
 
-pub trait AsTrait {
+/* this trait exists because concrete types implementing MountableLayout need to be used in methods that require the trait object */
+pub trait AsMountableLayout {
     fn as_trait_ref(&self) -> &dyn MountableLayout;
     fn as_trait_mut(&mut self) -> &mut dyn MountableLayout;
 }
 
-impl<T: MountableLayout + Sized> AsTrait for T {
+impl<T: MountableLayout + Sized> AsMountableLayout for T {
     fn as_trait_ref(&self) -> &dyn MountableLayout { self }
     fn as_trait_mut(&mut self) -> &mut dyn MountableLayout { self }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
-pub struct Mount {
-    pub id: MountId,
-    pub children: u8
-}
-
-impl Mount {
-    fn fork(&mut self) -> Mount {
-        self.children += 1;
-        Mount { 
-            id: MountFinder::new(self.id).push(self.children).id, 
-            children: 0
-        }
-    }
-}
+/* iterators for iterating over the children of the given mountable mutably or immutably */
 
 pub struct MountChildIter<'a> {
-    drawing: &'a dyn MountableLayout,
+    mountable: &'a dyn MountableLayout,
     index: usize
 }
 
@@ -149,14 +180,14 @@ impl<'a> CustomIterator for MountChildIter<'a> {
     type Item = RefFamily<dyn MountableLayout>;
 
     fn next<'s>(&'s mut self) -> Option<<Self::Item as FamilyLt<'s>>::Out> {
-        let maybe_child = self.drawing.child_ref(self.index);
+        let maybe_child = self.mountable.child_ref(self.index);
         self.index += 1;
         maybe_child
     }
 }
 
 pub struct MountChildIterMut<'a> {
-    drawing: &'a mut dyn MountableLayout,
+    mountable: &'a mut dyn MountableLayout,
     index: usize
 }
 
@@ -164,7 +195,7 @@ impl<'a> CustomIterator for MountChildIterMut<'a> {
     type Item = MutRefFamily<dyn MountableLayout>;
 
     fn next<'s>(&'s mut self) -> Option<<Self::Item as FamilyLt<'s>>::Out> {
-        let maybe_child = self.drawing.child_mut(self.index);
+        let maybe_child = self.mountable.child_mut(self.index);
         self.index += 1;
         maybe_child
     }

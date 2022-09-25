@@ -1,11 +1,25 @@
+/*
+ * space.rs
+ * module of constructs that define spatial coordinates in absolute or relative terms 
+ * and methods that transform or query said space
+ * 
+ * a common theme in this module is to panic on overflowing operations
+ */
+
 use std::cmp::{max, min};
 use std::ops::Add;
 use tui::layout::Rect;
 
+/* 
+ * Linear interpolation: 
+ * structs that implement this trait can be interpolated 
+ * where an alpha ([0, 1] scalar) defines interpolation progress 
+ */
 pub trait Lerp {
     fn lerp(self, to: Self, alpha: f32) -> Self;
 }
 
+// 2D Point
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Point2D {
     pub x: i16,
@@ -22,6 +36,7 @@ impl Add<Point2D> for Point2D {
     type Output = Point2D;
     fn add(self, rhs: Point2D) -> Point2D {
         Point2D { 
+            // avoid overflow
             x: self.x.checked_add(rhs.x).unwrap(), 
             y: self.y.checked_add(rhs.y).unwrap()
         }
@@ -37,6 +52,7 @@ impl Lerp for Point2D {
     }
 }
 
+// 2D Size
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct Size2D {
     pub x: u16,
@@ -72,6 +88,7 @@ impl Lerp for Size2D {
     }
 }
 
+// 2D relative scale
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Scale2D {
     pub x: f32,
@@ -94,6 +111,12 @@ impl Lerp for Scale2D {
     }
 }
 
+/* Stands for "Universal Dimension"
+ * this struct is a copy of Roblox's UDim datatype used in UI classes but this construct is universal in all UI layout technology
+ * scale is a metric defined relative to some "parent" space (ex: 0.5 scale could mean use half of the canvas space in one dimension)
+ * offset is an metric defined in absolute pixels
+ * UDim::new(0.5, 5) could mean use half the canvas space in one dimension + 5 pixels
+ */
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UDim {
     pub scale: f32,
@@ -115,6 +138,10 @@ impl Lerp for UDim {
     }
 }
 
+/*
+ * 2D variant of UDim
+ * This is the main struct used to define draw / layout spaces with respect to a parent space
+ */
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UDim2 {
     pub x: UDim,
@@ -161,6 +188,12 @@ impl Lerp for UDim2 {
     }
 }
 
+/*
+ * AbsoluteSpace
+ * Defines in exact pixel terms some canvas space
+ * where size is the canvas size and position is the location of the top-left pixel of the canvas
+ * Analgous to tui's Rect struct
+ */
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct AbsoluteSpace {
     pub size: Size2D,
@@ -273,6 +306,7 @@ impl Lerp for AbsoluteSpace {
     }
 }
 
+/* implement IntoIterator for AbsoluteSpace to interate through all the (x, y) points within the region */
 impl IntoIterator for AbsoluteSpace {
     type Item = Point2D;
     type IntoIter = AbsoluteSpaceIterator;
@@ -286,6 +320,7 @@ impl IntoIterator for AbsoluteSpace {
     }
 }
 
+/* This is the iterator that returns the next point inside the space on each call */
 pub struct AbsoluteSpaceIterator {
     space: AbsoluteSpace,
     index: u16,
@@ -310,6 +345,15 @@ impl Iterator for AbsoluteSpaceIterator {
     }
 }
 
+/*
+ * Space
+ * Premiere struct that fully defines a layout relative to a parent layout
+ * Size: size of the layout in relative terms
+ * Position: position of the layout in relative terms
+ * Anchor: a 2D scalar that defines what part of the layout will lie at the defined position
+ *      ex: position (0.5 xscale, 0.5 yscale) anchor (0, 0) positions the top left point of the layout in the middle of the parent layout
+ *          but anchor (0.5, 0.5) instead makes the middle point of the layout in the middle of the parent layout (thereby centering it)
+ */
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Space {
     pub size: UDim2,
@@ -329,14 +373,26 @@ impl Space {
         Space::new(size, UDim2::new(0.0, 0, 0.0, 0), Scale2D::new(0.0, 0.0))
     }
 
-    pub fn to_absolute_space(self, screen: AbsoluteSpace) -> AbsoluteSpace {
-        let sizex = (screen.size.x as f32)*self.size.x.scale + self.size.x.offset as f32;
-        let sizey = (screen.size.y as f32)*self.size.y.scale + self.size.y.offset as f32;
+    /* for a given parent AbsoluteSpace, compute the AbsoluteSpace of this Space */
+    pub fn to_absolute_space(self, parent: AbsoluteSpace) -> AbsoluteSpace {
+        /* absolute size values are just the scale*parent_size + offset */
+        let sizex = (parent.size.x as f32)*self.size.x.scale + self.size.x.offset as f32;
+        let sizey = (parent.size.y as f32)*self.size.y.scale + self.size.y.offset as f32;
         let sizex_abs = sizex.abs();
         let sizey_abs = sizey.abs();
 
-        let posx = screen.position.x as f32 + ((screen.size.x).saturating_sub(1) as f32)*self.position.x.scale + self.position.x.offset as f32;
-        let posy = screen.position.y as f32 + ((screen.size.y).saturating_sub(1) as f32)*self.position.y.scale + self.position.y.offset as f32;
+        /* 
+         * it is the same with position but instead of scale*parent_position it is scale*(parent_position - 1)
+         * why? because we want a scale of 1 to put the top-left pixel of a given area in the bottom right most pixel INSIDE the parent area
+         * if we use parent_position then a position of (x_scale: 1, y_scale: 1) puts the area right OUTSIDE the parent area
+         * ok but why ask for that behavior?
+         * well, its it made sense that (x_scale: 1, y_scale: 1) with anchor (1, 1) puts the bottom right area inside the parent area at the
+         * bottom right
+         */
+        let posx = parent.position.x as f32 + ((parent.size.x).saturating_sub(1) as f32)*self.position.x.scale + self.position.x.offset as f32;
+        let posy = parent.position.y as f32 + ((parent.size.y).saturating_sub(1) as f32)*self.position.y.scale + self.position.y.offset as f32;
+
+        // copysign of size because that determines the direction of translation of the top-left area due to the anchor
         let anchorx = (sizex_abs - 1.0).max(0.0).copysign(sizex)*self.anchor.x;
         let anchory = (sizey_abs - 1.0).max(0.0).copysign(sizey)*self.anchor.y;
 
@@ -345,6 +401,9 @@ impl Space {
                 x: u16::try_float(sizex_abs.round()).unwrap(),
                 y: u16::try_float(sizey_abs.round()).unwrap()
             },
+
+            // negative size is coded as positive size but translated by negative size amount (gives the illusion of a flip)
+            // anchor is coded as translating the top-left area to its new position due to do the anchor
             position: Point2D {
                 x: i16::try_float((if sizex < 0.0 { posx + sizex } else { posx }).round() - anchorx.round()).unwrap(),
                 y: i16::try_float((if sizey < 0.0 { posy + sizey } else { posy }).round() - anchory.round()).unwrap()
@@ -371,6 +430,11 @@ impl Lerp for Space {
     }
 }
 
+/* 
+ * Needed float to u16, i16 conversion in Space::to_absolute_space method 
+ * Converts f32 to u16, checks if same u16 converted to f32 == original f32, otherwise panic
+ * Using this over "as" because I would like the application to panic if overflow occurs in release or if f32 is not rounded
+ */
 trait FloatTryFrom<T> {
     type Error;
 

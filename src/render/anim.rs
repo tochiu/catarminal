@@ -1,3 +1,7 @@
+/*
+ * anim.rs
+ * module of constructs used in animation
+ */
 
 use super::{
     space::{Space, Lerp}, 
@@ -6,12 +10,14 @@ use super::{
 
 use std::time::Instant;
 
+/* animatable structs implement this trait to define a target type to advance using animation state */
 pub trait Animatable {
     type Target: ?Sized;
     fn step(&mut self, target: &mut Self::Target, service: &mut ScreenAnimationService);
     fn cancel(&mut self, service: &mut ScreenAnimationService);
 }
 
+/* SpaceAnimation is what is used to animate layout spaces */
 #[derive(Clone, Debug)]
 pub struct SpaceAnimation {
     space0: Space,
@@ -33,17 +39,22 @@ impl SpaceAnimation {
 impl Animatable for SpaceAnimation {
     type Target = Space;
 
+    /* update animation state and target space accordingly */
     fn step(&mut self, target: &mut Self::Target, service: &mut ScreenAnimationService) {
         if self.stopped {
             return
         }
 
+        /* get animation progress as a [0, 1] scalar */
         let alpha = (self.start.elapsed().as_secs_f32()/self.duration).min(1.0);
+
+        /* stop animation logic if we have reached completion */
         if alpha == 1.0 {
             self.stopped = true;
             service.sub();
         }
 
+        /* update target acoordingly (this still runs when alpha == 1 to put target at goal space) */
         *target = self.space0.lerp(self.space1, ease(alpha, self.style, self.direction));
     }
 
@@ -57,19 +68,25 @@ impl Animatable for SpaceAnimation {
     }
 }
 
+/* the style of easing to use then transitioning from alpha: 0 to alpha: 1 */
 #[derive(Copy, Clone, Debug)]
 pub enum EasingStyle {
     Linear,
     Cubic
 }
 
+/* the "direction of slow down" of the ease operation */
 #[derive(Copy, Clone, Debug)]
 pub enum EasingDirection {
-    In,
-    Out,
-    InOut
+    In, // this means the alpha will start with no speed and speed up
+    Out, // this means the alpha will start with speed and slow down
+    InOut // this means the alpha will start with no speed and speed up but then slow down again
 }
 
+/* 
+ * takes an alpha assumed to be linear and maps it to an alpha of the given easing style and direction
+ * read more here: https://easings.net/
+ */
 pub fn ease(alpha: f32, style: EasingStyle, direction: EasingDirection) -> f32 {
     match style {
         EasingStyle::Cubic => {

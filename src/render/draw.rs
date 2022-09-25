@@ -1,3 +1,8 @@
+/*
+ * draw.rs
+ * module of constructs used in drawings
+ */
+
 use super::{
     space::*,
     screen::*, 
@@ -5,11 +10,14 @@ use super::{
     mount::{MountableLayout, Mount}
 };
 
+/* structs that are StatefulDrawable but dont actually take state can use this empty struct */
 pub struct NoDrawState;
 
 pub trait Layoutable {
     fn layout_mut(&mut self) -> &mut DrawLayout;
     fn layout_ref(&self) -> &DrawLayout;
+
+    /* gets the layout in absolute terms using the AbsoluteSpace of the given parent layout */
     fn to_absolute_layout_space(&self, parent_absolute_space: AbsoluteSpace) -> AbsoluteSpace {
         self.layout_ref().space.to_absolute_space(parent_absolute_space)
     }
@@ -60,6 +68,16 @@ impl DrawLayout {
         self
     }
 }
+
+// TODO: find a better way to write this, these structs exist only to satisfy trait bounds of generic drawing structs (ex. Dragger)
+// some generic drawings require a StatefulDrawable + MountableLayout in order to pass down state / events but the struct doesnt need that so an
+// "adapter" generic struct can be sandwiched between the two to drop said state / event
+// alternatively can be used as simple containers
+// thats what these next 4 structs are
+// DrawDuplex contains MountableLayout + StatefulDrawable
+// DrawPasser contains StatefulDrawable
+// DrawBranch contains MountableLayout + Drawable
+// DrawLeaf contains Drawable
 
 #[derive(Debug)]
 pub struct DrawDuplex<T: MountableLayout + StatefulDrawable> {

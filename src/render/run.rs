@@ -27,6 +27,7 @@ use rand::{prelude::Distribution, distributions::Uniform, Rng};
 
 const DEFAULT_REDRAW_DELAY_MS: u64 = 4;
 
+/* this the render loop with some test code for now */
 pub fn run(enable_logger: bool) -> Result<(), io::Error> {
     let mut rng = rand::thread_rng();
 
@@ -130,12 +131,14 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
 
         terminal.draw(|f| {
             if enable_logger {
+                /* divide screen for the logger and game */
                 let rects = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                     .split(f.size());
                 
-                f.render_stateful_widget(game_screen.as_widget(), rects[0], &mut NoDrawState);
+                /* draw the game screen */
+                f.render_stateful_widget(game_screen.as_stateful_widget(), rects[0], &mut NoDrawState);
                 
                 let tui_w = TuiLoggerWidget::default()
                     .block(
@@ -155,10 +158,12 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                     .style_warn(Style::default().fg(Color::Yellow))
                     .style_trace(Style::default().fg(Color::White))
                     .style_info(Style::default().fg(Color::Green));
-
+                
+                /* draw the logger */
                 f.render_widget(tui_w, rects[1]);
             } else {
-                f.render_stateful_widget(game_screen.as_widget(), f.size(), &mut NoDrawState);
+                /* draw the game */
+                f.render_stateful_widget(game_screen.as_stateful_widget(), f.size(), &mut NoDrawState);
             }
         })?;
     }
