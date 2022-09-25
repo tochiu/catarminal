@@ -41,7 +41,8 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         .collect();
 
     // insert desert tile at a random location in the tiles vector
-    tiles.insert(rng.gen_range(0..=tiles.len()), Tile::new(7, enums::TileResource::OfDesert));
+    let desert_tile_index = rng.gen_range(0..=tiles.len());
+    tiles.insert(desert_tile_index, Tile::new(7, enums::TileResource::OfDesert));
 
     let ports: Vec<Port> = enums::PortResource::OfAnyKind // sample_iter takes a self type so I need to do PortResource::OfAnyKind instead of just PortResource
         .sample_iter(&mut rng) // create an iterator that takes samples of PortResource
@@ -55,15 +56,19 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         let game_screen_mutex = Arc::clone(&game_screen_resource);
         thread::spawn(move || {
             let mut rng = rand::thread_rng();
+            let mut last_num = desert_tile_index;
             loop {
                 thread::sleep(Duration::from_secs(1));
                 let mut guard = game_screen_mutex.lock().unwrap();
                 let game_screen = guard.deref_mut();
                 
-                game_screen.root.map_dragger.drawing.move_robber(
-                    rng.gen_range(0..*map::MAP_PORT_CAPACITY), 
-                    &mut game_screen.animation
-                );
+                let mut num = rng.gen_range(0..*map::MAP_TILE_CAPACITY - 1);
+                if num == last_num {
+                    num = *map::MAP_TILE_CAPACITY - 1;
+                }
+
+                game_screen.root.map_dragger.drawing.move_robber(num, &mut game_screen.animation);
+                last_num = num;
             }
         });
     }
