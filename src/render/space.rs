@@ -7,7 +7,7 @@
  */
 
 use std::cmp::{max, min};
-use std::ops::Add;
+use std::ops::{Add, Sub};
 use tui::layout::Rect;
 
 /* 
@@ -39,6 +39,17 @@ impl Add<Point2D> for Point2D {
             // avoid overflow
             x: self.x.checked_add(rhs.x).unwrap(), 
             y: self.y.checked_add(rhs.y).unwrap()
+        }
+    }
+}
+
+impl Sub<Point2D> for Point2D {
+    type Output = Point2D;
+    fn sub(self, rhs: Point2D) -> Point2D {
+        Point2D { 
+            // avoid overflow
+            x: self.x.checked_sub(rhs.x).unwrap(), 
+            y: self.y.checked_sub(rhs.y).unwrap()
         }
     }
 }
@@ -75,6 +86,17 @@ impl Add<Size2D> for Size2D {
         Size2D { 
             x: self.x.checked_add(rhs.x).unwrap(), 
             y: self.y.checked_add(rhs.y).unwrap()
+        }
+    }
+}
+
+impl Sub<Size2D> for Size2D {
+    type Output = Size2D;
+    fn sub(self, rhs: Size2D) -> Size2D {
+        Size2D { 
+            // avoid overflow
+            x: self.x.checked_sub(rhs.x).unwrap(), 
+            y: self.y.checked_sub(rhs.y).unwrap()
         }
     }
 }
