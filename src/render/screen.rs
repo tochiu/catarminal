@@ -221,6 +221,18 @@ impl<'a> ScreenArea<'a> {
         ScreenArea { absolute_layout_space, ..self }
     }
 
+    pub fn mut_cell_at(&mut self, point: Point2D) -> Option<&mut Cell> {
+        let absolute_point = self.absolute_layout_space.absolute_position_of(point);
+        if self.absolute_draw_space.is_interior_point(absolute_point) {
+            Some(self.buf.get_mut(
+                u16::try_from(absolute_point.x).unwrap(), 
+                u16::try_from(absolute_point.y).unwrap()
+            ))
+        } else {
+            None
+        }
+    }
+
     /* an iterator of the drawable cells of the buffer from top-left to bottom-right */
     pub fn iter_cells_mut(&mut self) -> ScreenCellIterMut {
         ScreenCellIterMut { buf: self.buf, itr: self.absolute_draw_space.into_iter() }
