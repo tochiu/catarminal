@@ -49,17 +49,17 @@ impl Game {
             players: PlayerList::new(
                 vec![
                     PlayerFrame::new(
-                        String::from("Siegward"), 
+                        String::from("Andre"), 
                         Color::Red, 
                         DrawLayout::default()
                     ),
                     PlayerFrame::new(
-                        String::from("Rusuban"), 
+                        String::from("Unbreakable Patches"), 
                         Color::Green, 
                         DrawLayout::default()
                     ),
                     PlayerFrame::new(
-                        String::from("Boneless Pizza"), 
+                        String::from("Seigward"), 
                         Color::Blue, 
                         DrawLayout::default()
                     )

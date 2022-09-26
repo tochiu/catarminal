@@ -1,3 +1,8 @@
+/*
+ * shape.rs
+ * a module of utility drawings that help with drawing shapes onto the screen
+ * a "shape" is a drawing with arbitrary content but one style applied
+ */
 use super::super::{
     space::*,
     draw::*, 
@@ -9,11 +14,13 @@ use tui::style::Style;
 use unicode_segmentation::{UnicodeSegmentation, Graphemes};
 use unicode_width::UnicodeWidthStr;
 
-/* 
- * TODO: allow arbitrary lifetimes for BitShape128, Shap128, BitShape, Shape
- * MountableLayout structs that need to store shapes can specify a static lifetime themselves
- */ 
+// TODO: allow arbitrary lifetimes for BitShape128, Shap128, BitShape, Shape
+// TODO: MountableLayout structs that need to store shapes can specify a static lifetime themselves
 
+ /*
+  * BitShape128 defines a mxn grid where mxn < 128 filled with pixels defined by a u128
+  * ex: u128 = 110000 with m = 3, n = 2 translates to the first 2 pixels of the top left row being filled
+  */
 #[derive(Debug, Default, Copy, Clone)]
 pub struct BitShape128 {
     pub bits: u128,
@@ -22,10 +29,18 @@ pub struct BitShape128 {
 
 impl BitShape128 {
     pub const fn new(bits: u128, size: Size2D) -> Self {
+        /* 
+         * translate the bits so the least significant bit corresponds to the top-left area of the layout 
+         * shift bits 128 - m*n to the left then reverse them
+         */
         BitShape128 { bits: (bits << (u128::BITS as u16 - size.x*size.y)).reverse_bits(), size }
     }
 }
 
+/*
+ * Shape128 is a BitShape128 but with a defined symbol and style to fill the marked cells
+ * and layout to position the shape
+ */
 #[derive(Debug)]
 pub struct Shape128 {
     pub layout: DrawLayout,
@@ -55,6 +70,10 @@ impl Drawable for Shape128 {
     fn draw(&self, area: ScreenArea) {
         for point in area.absolute_draw_space {
             let bit_point = area.absolute_layout_space.relative_position_of(point);
+            /* 
+             * y*xsize + x defines the amount of right shifting to get to the bit for this cell to the right
+             * bitwise and with 1 and check if == 1 to see if the bit is a 1 
+             */
             if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
                 let i = area.buf.index_of(point.x as u16, point.y as u16);
                 area.buf.content[i]
@@ -65,12 +84,18 @@ impl Drawable for Shape128 {
     }
 }
 
+/*
+ * BitShape as BitShape128 but instead a Vec of u128s
+ * each u128 defines a row in the area
+ * m x n size (m < 128)
+ */
 #[derive(Debug, Default, Clone)]
 pub struct BitShape {
     pub bits: Vec<u128>,
     pub size: Size2D
 }
 
+// TODO: comment this...
 impl BitShape {
     pub fn new(rows: Vec<u128>, size: Size2D) -> Self {
         let width = size.x;
@@ -136,6 +161,7 @@ impl Layoutable for Shape {
     fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
+// TODO: comment this...
 impl Drawable for Shape {
     fn draw(&self, area: ScreenArea) {
         for point in area.absolute_draw_space {
@@ -151,6 +177,7 @@ impl Drawable for Shape {
     }
 }
 
+/* DrawableString takes a string and holds references to each line segment */
 #[derive(Debug)]
 pub struct DrawableString<'a> {
     pub lines: Vec<&'a str>,
@@ -184,6 +211,7 @@ impl<'a> DrawableString<'a> {
     }
 }
 
+/* Implement an iterator that goes through all the graphemes in the string with their x y coordinates */
 pub struct DrawableStringIterator<'a> {
     shape: &'a DrawableString<'a>,
     graphemes: Graphemes<'a>,
