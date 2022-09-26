@@ -1,6 +1,7 @@
 use super::{
     parse,
-    tile::Tile,
+    Tile,
+    Road,
     port::{self, Port},
     super::{
         shape::*, 
@@ -34,6 +35,8 @@ pub struct Map {
     bkg: &'static StringShape<'static>,
     tiles: Vec<Tile>,
     ports: Vec<Port>,
+    roads: Vec<Vec<Option<Road>>>,
+    road_index: Vec<(usize, usize)>,
     robber: DrawLeaf<Shape128>,
     layout: DrawLayout,
     mount: Mount
@@ -59,11 +62,47 @@ impl Map {
                 .set_position(UDim2::from_point2d(robber_init_tile_position + ROBBER_OFFSET))
                 .clone()
         );
+
+        let roads = parse::MAP_GRAPH.road_edges
+            .iter()
+            .enumerate()
+            .map(|(from_road, edges)| {
+                edges
+                    .iter()
+                    .map(|&to_road| {
+                        if from_road < to_road { 
+                            Some(Road::new(
+                                parse::MAP_GRAPH.road_points[from_road], 
+                                parse::MAP_GRAPH.road_points[to_road], 
+                                Style::default().bg(Color::Cyan), 
+                                DrawLayout::default()
+                            )) 
+                        } else { 
+                            None 
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        
+        let road_index = parse::MAP_GRAPH.road_edges
+            .iter()
+            .enumerate()
+            .map(|(from_road, edges)| {
+                edges
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(index, &to_road)| if from_road < to_road { Some((from_road, index)) } else { None })
+            })
+            .flatten()
+            .collect();
         
         let mut map = Map { 
             tiles, 
-            ports, 
-            robber, 
+            ports,
+            roads,
+            road_index,
+            robber,
             bkg: &parse::MAP_BKG_SHAPE,
             layout: DrawLayout::default(), 
             mount: Mount::default() 
@@ -118,6 +157,11 @@ impl Drawable for Map {
         }
         area.draw_children(&self.tiles);
         area.draw_children(&self.ports);
+
+        for road in self.road_index.iter().cloned().map(|(idx0, idx1)| self.roads[idx0][idx1].as_ref().unwrap()) {
+            area.draw_child(road);
+        }
+
         area.draw_child(&self.robber);
     }
 }
@@ -135,13 +179,29 @@ impl MountableLayout for Map {
     fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout> {
         match i {
             0 => Some(self.robber.as_trait_ref()),
-            _ => None
+            _ => {
+                let i = i - 1;
+                if i >= self.road_index.len() {
+                    None
+                } else {
+                    let (idx0, idx1) = self.road_index[i];
+                    Some(self.roads[idx0][idx1].as_ref().unwrap())
+                }
+            }
         }
     }
     fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout> {
         match i {
             0 => Some(self.robber.as_trait_mut()),
-            _ => None
+            _ => {
+                let i = i - 1;
+                if i >= self.road_index.len() {
+                    None
+                } else {
+                    let (idx0, idx1) = self.road_index[i];
+                    Some(self.roads[idx0][idx1].as_mut().unwrap())
+                }
+            }
         }
     }
 }
