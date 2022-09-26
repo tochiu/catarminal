@@ -32,17 +32,30 @@ pub trait StatefulDrawable: std::fmt::Debug + Layoutable {
     fn stateful_draw(&self, area: ScreenArea, state: &Self::State);
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct DrawLayout {
+    pub is_visible: bool,
     pub space: Space,
     pub anim: Option<Box<SpaceAnimation>>
 }
 
+impl Default for DrawLayout {
+    fn default() -> Self {
+        DrawLayout::FULL
+    }
+}
+
 impl DrawLayout {
     pub const FULL: DrawLayout = DrawLayout {
+        is_visible: true,
         space: Space::FULL,
         anim: None
     };
+
+    pub fn set_visible(&mut self, is_visible: bool) -> &mut Self {
+        self.is_visible = is_visible;
+        self
+    }
 
     pub fn center(&mut self) -> &mut Self {
         self.set_space(self.space.center())

@@ -178,24 +178,36 @@ impl<'a> ScreenRelayout<'a> {
      */
     pub fn children_in_space_of(&mut self, mountable: &mut dyn MountableLayout, new_parent_absolute_layout_space: AbsoluteSpace) {
         let absolute_layout_space = mountable.to_absolute_layout_space(self.parent_absolute_layout_space);
+        
+        // TODO: find a way to cull relayout operations because the current way animations work, 
+        // TODO: culling unseen animations from a relayout will never give them an opportunity to notify the screen when they are done
+        // TODO: this leads to overdrawing as the screen thinks its animating some area when it is actually being culled
+        // TODO: a simple solution would to be to specify the duration of each animation so the screen can remove them itself
+        let absolute_draw_space = self.get_draw_space_of(absolute_layout_space).unwrap_or(AbsoluteSpace { 
+            position: absolute_layout_space.position, 
+            size: Size2D::new(0, 0) 
+        });
 
-        /* only relayout children if the current layout is in the drawing space */
-        if let Some(absolute_draw_space) = self.get_draw_space_of(absolute_layout_space) {
-            let mut itr = mountable.child_iter_mut();
-            while let Some(child) = itr.next() {
-                ScreenRelayout {
-                    id: child.mount_ref().id,
-                    parent_absolute_draw_space: absolute_draw_space,
-                    parent_absolute_layout_space: new_parent_absolute_layout_space,
-                    input: self.input,
-                    animation: self.animation
-                }.execute_on(child);
-            }
+        //if let Some(absolute_draw_space) = self.get_draw_space_of(absolute_layout_space) {
+        let mut itr = mountable.child_iter_mut();
+        while let Some(child) = itr.next() {
+            ScreenRelayout {
+                id: child.mount_ref().id,
+                parent_absolute_draw_space: absolute_draw_space,
+                parent_absolute_layout_space: new_parent_absolute_layout_space,
+                input: self.input,
+                animation: self.animation
+            }.execute_on(child);
         }
+        //}
     }
 
     /* reserve a subregion of the layout space for capturing input (reads as relayout.input_space_of(mountable)) */
     pub fn input_space_of(&mut self, mountable: &mut dyn MountableLayout, input_space: Space) {
+        if !mountable.layout_ref().is_visible {
+            return
+        }
+        
         let absolute_layout_space = mountable.to_absolute_layout_space(self.parent_absolute_layout_space);
         if let Some(absolute_draw_space) = self.get_draw_space_of(absolute_layout_space) {
             if let Some(absolute_interactable_input_space) = 
@@ -252,12 +264,14 @@ impl<'a> ScreenArea<'a> {
         let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
 
         /* only draw child if any part of it will be displayed */
-        if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
-            child.draw(ScreenArea {
-                absolute_draw_space: subarea_absolute_draw_space,
-                absolute_layout_space: subarea_absolute_layout_space,
-                buf: self.buf
-            });
+        if child.layout_ref().is_visible {
+            if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
+                child.draw(ScreenArea {
+                    absolute_draw_space: subarea_absolute_draw_space,
+                    absolute_layout_space: subarea_absolute_layout_space,
+                    buf: self.buf
+                });
+            }
         }
     }
     
@@ -270,15 +284,17 @@ impl<'a> ScreenArea<'a> {
     /* carbon copy of draw_child but for StatefulDrawable */
     pub fn draw_stateful_child<T: StatefulDrawable>(&mut self, child: &T, state: &T::State) {
         let subarea_absolute_layout_space = child.to_absolute_layout_space(self.absolute_layout_space);
-        if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
-            child.stateful_draw(
-                ScreenArea {
-                    absolute_draw_space: subarea_absolute_draw_space,
-                    absolute_layout_space: subarea_absolute_layout_space,
-                    buf: self.buf
-                },
-                state
-            );
+        if child.layout_ref().is_visible {
+            if let Some(subarea_absolute_draw_space) = self.absolute_draw_space.try_intersection(subarea_absolute_layout_space) {
+                child.stateful_draw(
+                    ScreenArea {
+                        absolute_draw_space: subarea_absolute_draw_space,
+                        absolute_layout_space: subarea_absolute_layout_space,
+                        buf: self.buf
+                    },
+                    state
+                );
+            }
         }
     }
 
