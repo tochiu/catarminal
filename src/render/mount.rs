@@ -87,13 +87,17 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsMountableLayout + 's
     // required / utility
 
     /* animate the layout of the mountable */
-    fn animate_space(&mut self, service: &mut ScreenAnimationService, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
+    fn animate_space_from(&mut self, service: &mut ScreenAnimationService, from: Space, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
         let mut layout = self.layout_mut();
         if let Some(anim) = layout.anim.as_mut() {
             anim.cancel(service);
         }
         
-        layout.anim = Some(Box::new(SpaceAnimation::new(service, layout.space, to, duration, style, direction)));
+        layout.anim = Some(Box::new(SpaceAnimation::new(service, from, to, duration, style, direction)));
+    }
+
+    fn animate_space(&mut self, service: &mut ScreenAnimationService, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
+        self.animate_space_from(service, self.layout_ref().space, to, duration, style, direction)
     }
 
     /* set the mount of the mountable and mount its descendants */
