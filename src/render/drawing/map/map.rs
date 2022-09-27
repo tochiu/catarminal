@@ -1,7 +1,7 @@
 use super::{
     parse,
     Tile,
-    Road,
+    placement::{Building, Road, Placement},
     port::{self, Port},
     super::{
         shape::*, 
@@ -37,6 +37,7 @@ pub struct Map {
     ports: Vec<Port>,
     roads: Vec<Vec<Option<Road>>>,
     road_index: Vec<(usize, usize)>,
+    buildings: Vec<Building>,
     robber: DrawLeaf<Shape128>,
     layout: DrawLayout,
     mount: Mount
@@ -75,7 +76,7 @@ impl Map {
                                 parse::MAP_GRAPH.road_points[from_road], 
                                 parse::MAP_GRAPH.road_points[to_road], 
                                 Style::default().bg(Color::Cyan), 
-                                DrawLayout::default()
+                                DrawLayout::default().set_visible(false).clone()
                             )) 
                         } else { 
                             None 
@@ -97,11 +98,25 @@ impl Map {
             .flatten()
             .collect();
         
+        let buildings = parse::MAP_GRAPH.road_points
+            .iter()
+            .map(|&road_point| Building::new(
+                enums::Building::Settlement, 
+                Style::default(), 
+                DrawLayout::default()
+                    .set_position(UDim2::from_point2d(road_point))
+                    .set_anchor(Scale2D::new(0.5, 1.0))
+                    .set_visible(false)
+                    .clone()
+            ))
+            .collect();
+        
         let mut map = Map { 
             tiles, 
             ports,
             roads,
             road_index,
+            buildings,
             robber,
             bkg: &parse::MAP_BKG_SHAPE,
             layout: DrawLayout::default(), 
@@ -130,6 +145,32 @@ impl Map {
         }
         log::info!("animating robber!");
         self.robber.animate_space(anim_service, to, 1.0, EasingStyle::Cubic, EasingDirection::InOut);
+    }
+
+    pub fn place_road(&mut self, road_a: usize, road_b: usize, style: Style, anim_service: &mut ScreenAnimationService) {
+        let idx0 = road_a.min(road_b);
+        let idx1 = parse::MAP_GRAPH.road_edges[idx0].iter().position(|&road| road == road_b.max(road_b)).unwrap();
+        self.roads[idx0][idx1].as_mut().unwrap().build(style, anim_service);
+    }
+
+    pub fn place_building(&mut self, road: usize, kind: enums::Building, style: Style, anim_service: &mut ScreenAnimationService) {
+        if self.buildings[road].kind != kind {
+            let mut mount = *self.buildings[road].mount_ref(); // manual remounting
+            mount.children = 0;
+            let mut building = Building::new(
+                kind, 
+                Style::default(), 
+                DrawLayout::default()
+                    .set_position(UDim2::from_point2d(parse::MAP_GRAPH.road_points[road]))
+                    .set_anchor(Scale2D::new(0.5, 1.0))
+                    .set_visible(false)
+                    .clone()
+            );
+            building.mount(mount);
+            self.buildings[road] = building;
+        }
+
+        self.buildings[road].build(style, anim_service);
     }
 }
 
@@ -161,6 +202,7 @@ impl Drawable for Map {
         for road in self.road_index.iter().cloned().map(|(idx0, idx1)| self.roads[idx0][idx1].as_ref().unwrap()) {
             area.draw_child(road);
         }
+        area.draw_children(&self.buildings);
 
         area.draw_child(&self.robber);
     }
@@ -176,13 +218,18 @@ impl StatefulDrawable for Map {
 impl MountableLayout for Map {
     fn mount_ref(&self) -> &Mount { &self.mount }
     fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
-    fn child_ref(&self, i: usize) -> Option<&dyn MountableLayout> {
+    fn child_ref(&self, mut i: usize) -> Option<&dyn MountableLayout> {
         match i {
             0 => Some(self.robber.as_trait_ref()),
             _ => {
-                let i = i - 1;
+                i -= 1;
                 if i >= self.road_index.len() {
-                    None
+                    i -= self.road_index.len();
+                    if i >= self.buildings.len() {
+                        None
+                    } else {
+                        Some(self.buildings[i].as_trait_ref())
+                    }
                 } else {
                     let (idx0, idx1) = self.road_index[i];
                     Some(self.roads[idx0][idx1].as_ref().unwrap())
@@ -190,13 +237,18 @@ impl MountableLayout for Map {
             }
         }
     }
-    fn child_mut(&mut self, i: usize) -> Option<&mut dyn MountableLayout> {
+    fn child_mut(&mut self, mut i: usize) -> Option<&mut dyn MountableLayout> {
         match i {
             0 => Some(self.robber.as_trait_mut()),
             _ => {
-                let i = i - 1;
+                i -= 1;
                 if i >= self.road_index.len() {
-                    None
+                    i -= self.road_index.len();
+                    if i >= self.buildings.len() {
+                        None
+                    } else {
+                        Some(self.buildings[i].as_trait_mut())
+                    }
                 } else {
                     let (idx0, idx1) = self.road_index[i];
                     Some(self.roads[idx0][idx1].as_mut().unwrap())

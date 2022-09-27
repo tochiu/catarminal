@@ -147,3 +147,20 @@ impl Distribution<TileResource> for Standard {
         }
     }
 }
+
+/* Kinds of buildings that can exist on a road point */
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Building {
+    Settlement,
+    City
+}
+
+/* impl Distribution to sample random Building */
+impl Distribution<Building> for Building {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Building {
+        match rng.gen_range(0..=1) {
+            0 => Building::Settlement,
+            _ => Building::City
+        }
+    }
+}

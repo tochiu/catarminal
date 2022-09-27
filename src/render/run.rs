@@ -73,6 +73,54 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         });
     }
 
+    { // test road + building placement animations
+        let game_screen_mutex = Arc::clone(&game_screen_resource);
+        thread::spawn(move || {
+            let mut rng = rand::thread_rng();
+            let road_edge_tuples = map::MAP_GRAPH.road_edges
+                .iter()
+                .enumerate()
+                .map(|(from_road, edges)| {
+                    edges
+                        .iter()
+                        .filter_map(move |&to_road| if from_road < to_road { Some((from_road, to_road)) } else { None })
+                })
+                .flatten();
+            for (road_a, road_b) in road_edge_tuples {
+                thread::sleep(Duration::from_millis(200));
+                let mut guard = game_screen_mutex.lock().unwrap();
+                let game_screen = guard.deref_mut();
+
+                game_screen.root.map_dragger.drawing.place_road(
+                    road_a, road_b, 
+                    Style::default().bg(Color::Rgb(
+                        rng.gen_range(0..=225), 
+                        rng.gen_range(0..=225), 
+                        rng.gen_range(0..=225)
+                    )), 
+                    &mut game_screen.animation
+                );
+            }
+
+            for road in 0..map::MAP_GRAPH.road_points.len() {
+                thread::sleep(Duration::from_millis(200));
+                let mut guard = game_screen_mutex.lock().unwrap();
+                let game_screen = guard.deref_mut();
+
+                game_screen.root.map_dragger.drawing.place_building(
+                    road,
+                    enums::Building::Settlement.sample(&mut rng),
+                    Style::default().bg(Color::Rgb(
+                        rng.gen_range(0..=225), 
+                        rng.gen_range(0..=225), 
+                        rng.gen_range(0..=225)
+                    )), 
+                    &mut game_screen.animation
+                );
+            }
+        });
+    }
+
     let game_screen_mutex = Arc::clone(&game_screen_resource);
 
     // setup terminal

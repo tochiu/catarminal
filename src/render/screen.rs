@@ -36,6 +36,10 @@ use unicode_segmentation::UnicodeSegmentation;
  * a behavior that optimizes some drawing is "clipping descendants" which means that child layouts cannot draw themselves 
  * or capture input in an area outside their parent area
  */
+
+// TODO: Place input & animation in a struct so they are easily passed to drawings in the root
+// TODO: Write ScreenAnimationService so it doesn't need to rely on drawings notifying it when an animation is done
+// TODO: ^ Motivation for this is when drawings get replaced we want to clear everything the Screen is keeping track for them
 #[derive(Debug)]
 pub struct Screen<T: MountableLayout + StatefulDrawable> {
     pub root: T,
