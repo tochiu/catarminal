@@ -8,7 +8,9 @@ use super::{
     draw::*,
     space::*,
     mount::*,
-    iter::*, anim::Animatable
+    iter::*, 
+    anim::Animatable, 
+    drawing::shape::BitShape
 };
 
 use tui::{
@@ -233,6 +235,64 @@ pub struct ScreenArea<'a> {
 }
 
 impl<'a> ScreenArea<'a> {
+    pub fn from_buffer(buf: &'a mut Buffer) -> Self {
+        let rect_space = AbsoluteSpace::from_rect(buf.area);
+        ScreenArea { 
+            absolute_draw_space: rect_space, 
+            absolute_layout_space: rect_space, 
+            buf 
+        }
+    }
+
+    pub fn bitmask(&mut self, mask: &BitShape) {
+        let absolute_mask_layout_space = AbsoluteSpace {
+            position: self.absolute_layout_space.position,
+            size: mask.size
+        };
+
+        if let Some(absolute_mask_draw_space) = absolute_mask_layout_space.try_intersection(self.absolute_draw_space) {
+            for point in absolute_mask_draw_space {
+                let relative_point = absolute_mask_layout_space.relative_position_of(point);
+                if !mask.is_filled_at(
+                    u16::try_from(relative_point.x).unwrap(), 
+                    u16::try_from(relative_point.y).unwrap()
+                ) {
+                    self.buf.get_mut(
+                        u16::try_from(point.x).unwrap(), 
+                        u16::try_from(point.y).unwrap()
+                    ).reset();
+                }
+            }
+        }
+    }
+
+    pub fn overlay(&mut self, overlay: &Buffer) {
+        let absolute_overlay_layout_space = AbsoluteSpace {
+            position: self.absolute_layout_space.position,
+            size: AbsoluteSpace::from_rect(overlay.area).size
+        };
+
+        if let Some(absolute_overlay_draw_space) = absolute_overlay_layout_space.try_intersection(self.absolute_draw_space) {
+            let default_cell = Cell::default();
+            for point in absolute_overlay_draw_space {
+                let relative_point = absolute_overlay_layout_space.relative_position_of(point);
+                let src = overlay.get(
+                    u16::try_from(relative_point.x).unwrap(), 
+                    u16::try_from(relative_point.y).unwrap()
+                );
+                let dst = self.buf.get_mut(
+                    u16::try_from(point.x).unwrap(), 
+                    u16::try_from(point.y).unwrap()
+                );
+
+                if src != &default_cell { // technically wanting cell @ dst to be reset w/ src is indistinguishable from wanting cell @ dst to be left untouched
+                    dst.set_symbol(&src.symbol);
+                    dst.set_style(src.style());
+                }
+            }
+        }
+    }
+
     pub fn transform(self, absolute_layout_space: AbsoluteSpace) -> ScreenArea<'a> {
         ScreenArea { absolute_layout_space, ..self }
     }

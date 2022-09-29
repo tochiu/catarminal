@@ -134,18 +134,63 @@ impl BitShape {
             size: size
         }
     }
+
+    // assumed size.area() > 0
+    pub fn paint<F>(size: Size2D, painter: F) -> Self
+        where F: Fn(u16, u16) -> bool
+    {
+        let area = size.area();
+        let capacity = (area as usize + 127)/128;
+        let mut bits = Vec::with_capacity(capacity);
+        let mut index = 0;
+        for _ in 0..capacity {
+            let mut chunk: u128 = 0;
+            let chunk_size = (area - index).min(128);
+            index += chunk_size;
+            let mut x = index % size.x;
+            let mut y = index / size.x;
+            for _ in 0..chunk_size {
+                if x > 0 {
+                    x -= 1;
+                } else {
+                    y -= 1;
+                    x = size.x - 1;
+                }
+                chunk = chunk << 1 | if painter(x, y) { 1 } else { 0 };
+            }
+            bits.push(chunk);
+        }
+        BitShape { bits, size }
+    }
+
+    // assumed lhs.size == rhs.size
+    pub fn intersect(&mut self, rhs: &BitShape) -> &mut Self {
+        for (lhs, rhs) in self.bits.iter_mut().zip(rhs.bits.iter()) {
+            *lhs &= rhs;
+        }
+        self
+    }
+
+    pub fn is_filled_at(&self, x: u16, y: u16) -> bool {
+        if x >= self.size.x || y >= self.size.y {
+            false
+        } else {
+            let index = (self.size.x*y + x) as usize;
+            self.bits[index / 128] >> (index % 128) & 1 == 1
+        }
+    }
 }
 
-#[derive(Debug)]
-pub struct Shape {
+#[derive(Debug, Clone)]
+pub struct Shape<'a> {
     pub layout: DrawLayout,
-    pub shape: &'static BitShape,
-    pub symbol: &'static str,
+    pub shape: &'a BitShape,
+    pub symbol: &'a str,
     pub style: Style
 }
 
-impl Shape {
-    pub fn new(shape: &'static BitShape, symbol: &'static str, style: Style, mut layout: DrawLayout) -> Self {
+impl<'a> Shape<'a> {
+    pub fn new(shape: &'a BitShape, symbol: &'a str, style: Style, mut layout: DrawLayout) -> Self {
         layout.set_size(UDim2::from_size2d(shape.size));
         Shape { 
             shape, 
@@ -154,15 +199,20 @@ impl Shape {
             layout
         }
     }
+
+    pub fn replace_shape(&mut self, shape: &'a BitShape) {
+        self.layout.set_size(UDim2::from_size2d(shape.size));
+        self.shape = shape;
+    }
 }
 
-impl Layoutable for Shape {
+impl<'a> Layoutable for Shape<'_> {
     fn layout_ref(&self) -> &DrawLayout { &self.layout }
     fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
 }
 
 // TODO: comment this...
-impl Drawable for Shape {
+impl<'a> Drawable for Shape<'_> {
     fn draw(&self, area: ScreenArea) {
         for point in area.absolute_draw_space {
             let bit_point = area.absolute_layout_space.relative_position_of(point);

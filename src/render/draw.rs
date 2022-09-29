@@ -11,6 +11,7 @@ use super::{
 };
 
 /* structs that are StatefulDrawable but dont actually take state can use this empty struct */
+// TODO: remove this because NoDrawState can be replaced with the empty tuple ()
 pub struct NoDrawState;
 
 pub trait Layoutable {

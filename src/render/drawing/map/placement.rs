@@ -22,14 +22,14 @@ pub trait Placement: MountableLayout {
     fn get_placement_space(&self) -> Space;
     fn build(&mut self, style: Style, service: &mut ScreenAnimationService) {
         self.set_placement_style(style);
+        let end_space = self.get_placement_space();
         let layout = self.layout_mut();
         if !layout.is_visible {
             layout.set_visible(true);
         }
-    
+        
         let mut start_space = layout.space;
         start_space.position.y.offset += PLACEMENT_Y_OFFSET;
-        let end_space = self.get_placement_space();
     
         self.animate_space_from(service, start_space, end_space, 0.5, EasingStyle::Cubic, EasingDirection::Out);
     } 

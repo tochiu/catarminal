@@ -86,6 +86,18 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
                         .filter_map(move |&to_road| if from_road < to_road { Some((from_road, to_road)) } else { None })
                 })
                 .flatten();
+            
+            for tile in 0..map::MAP_GRAPH.tile_points.len() {
+                thread::sleep(Duration::from_millis(200));
+                let mut guard = game_screen_mutex.lock().unwrap();
+                let game_screen = guard.deref_mut();
+
+                game_screen.root.map_dragger.drawing.place_tile(
+                    tile,
+                    &mut game_screen.animation
+                );
+            }
+            
             for (road_a, road_b) in road_edge_tuples {
                 thread::sleep(Duration::from_millis(200));
                 let mut guard = game_screen_mutex.lock().unwrap();
@@ -179,7 +191,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
             continue
         }
 
-        log::info!("drawing frame #{:?}", frame_number);
+        //log::info!("drawing frame #{:?}", frame_number);
         frame_number += 1;
 
         terminal.draw(|f| {

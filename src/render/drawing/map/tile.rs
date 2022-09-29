@@ -1,18 +1,21 @@
-use super::super::{
+use super::{super::{
     shape::*,
     super::{
         draw::*,
         space::*,
-        screen::*
+        screen::*,
+        anim::*
     }
-};
+}, MAP_SAND_COLOR};
 
 use crate::enums;
 
 use tui::{
     style::{Color, Style},
-    buffer::Cell
+    buffer::{Cell, Buffer}, layout::Rect
 };
+
+use std::time::Instant;
 
 const DIGITS: [BitShape128; 10] = [
     BitShape128::new(0b0111010001100011000101110, Size2D::new(5, 5)),
@@ -106,18 +109,63 @@ lazy_static! {
 
         BitShape::new(buf, TILE_SIZE)
     };
+
+    static ref TILE_EMPTY_BKG_SHAPE: Shape<'static> = Shape::new(
+        &TILE_BKG_BITSHAPE, 
+        " ",
+        Style::default().bg(MAP_SAND_COLOR),
+        DrawLayout::default()
+            .center()
+            .clone()
+    );
 }
 
 #[derive(Debug)]
 pub struct Tile {
     pub layout: DrawLayout,
     pub resource: enums::TileResource,
-    bkg: Shape,
+    bkg: Shape<'static>,
     rarity: Option<Shape128>, 
-    digits: (Option<Shape128>, Option<Shape128>)
+    digits: (Option<Shape128>, Option<Shape128>),
+    mount: Mount,
+    anim: TileAnimationData
+}
+
+#[derive(Debug, Default)]
+struct TileAnimationData {
+    bkg_alpha: f32,
+    duration: f32,
+    start: Option<Instant>,
+    is_done: bool
+}
+
+impl Animatable for Tile {
+    type Target = ();
+    fn step(&mut self, _: &mut Self::Target, service: &mut ScreenAnimationService) {
+        if let Some(start) = self.anim.start {
+            let alpha = (start.elapsed().as_secs_f32()/self.anim.duration).min(1.0);
+            if alpha == 1.0 {
+                self.anim.is_done = true;
+                service.sub();
+            }
+
+            self.anim.bkg_alpha = ease(alpha, EasingStyle::Cubic, EasingDirection::InOut);
+        }
+    }
+
+    // Tile animations aren't meant to be cancellable
+    fn cancel(&mut self, _: &mut ScreenAnimationService) {}
 }
 
 impl Tile {
+    pub fn play_animation(&mut self, service: &mut ScreenAnimationService) {
+        if let None = self.anim.start {
+            self.anim.duration = 0.5;
+            self.anim.start = Some(Instant::now());
+            service.add();
+        }
+    }
+
     pub fn new(roll: u8, resource: enums::TileResource) -> Self {
         let bkg = Shape::new(
             &TILE_BKG_BITSHAPE, 
@@ -138,7 +186,9 @@ impl Tile {
                 resource,
                 bkg,
                 rarity: None,
-                digits: (None, None)
+                digits: (None, None),
+                mount: Mount::default(),
+                anim: TileAnimationData::default()
             }
         } else {
             let is_best_roll = roll.abs_diff(7) == 1;
@@ -193,19 +243,15 @@ impl Tile {
                 bkg,
                 digits,
                 rarity: Some(rarity),
+                mount: Mount::default(),
+                anim: TileAnimationData::default()
             }
         }
     }
-}
 
-impl Layoutable for Tile {
-    fn layout_ref(&self) -> &DrawLayout { &self.layout }
-    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
-}
-
-impl Drawable for Tile {
-    fn draw(&self, mut area: ScreenArea) {
+    fn draw_area(&self, area: &mut ScreenArea) {
         area.draw_child(&self.bkg);
+        
         if let Some(rarity) = self.rarity.as_ref() {
             area.draw_child(rarity);
         }
@@ -220,5 +266,57 @@ impl Drawable for Tile {
             TILE_SYMBOL_OFFSET, 
             Style::default().fg(self.resource.get_color())
         );
+    }
+}
+
+impl Layoutable for Tile {
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
+}
+
+impl Drawable for Tile {
+    fn draw(&self, mut area: ScreenArea) {
+        if self.anim.bkg_alpha >= 1.0 {
+            self.draw_area(&mut area);
+        } else {
+            area.draw_child(&*TILE_EMPTY_BKG_SHAPE);
+            if self.anim.bkg_alpha > 0.0 {
+                let mut tile_buf = Buffer::empty(Rect::new(0, 0, TILE_SIZE.x, TILE_SIZE.y));
+                let mut tile_area = ScreenArea::from_buffer(&mut tile_buf);
+                self.draw_area(&mut tile_area);
+
+                let h = 0.5*TILE_SIZE.x as f32;
+                let k = 0.5*TILE_SIZE.y as f32;
+                let a = 0.5*self.anim.bkg_alpha*TILE_SIZE.x.max(2*TILE_SIZE.y) as f32; // 2*y because font height is twice font width
+                let b = 0.5*a; // font height in terminal is twice width so to account for this the ellipsis y axis must be half the x axis
+
+                let circle = BitShape::paint(TILE_SIZE, |x, y| ((x as f32 + 0.5 - h)/a).powi(2) + ((y as f32 + 0.5 - k)/b).powi(2) <= 1.0);
+                tile_area.bitmask(&circle);
+                area.overlay(&mut tile_buf);
+            }
+        }
+    }
+}
+
+// test
+use super::placement::Placement;
+use crate::render::mount::*;
+
+impl Placement for Tile {
+    fn get_placement_space(&self) -> Space { self.layout.space }
+    fn set_placement_style(&mut self, _: Style) {}
+}
+
+impl MountableLayout for Tile {
+    fn mount_ref(&self) -> &Mount { &self.mount }
+    fn mount_mut(&mut self) -> &mut Mount { &mut self.mount }
+    fn child_ref(&self, _: usize) -> Option<&dyn MountableLayout> { None }
+    fn child_mut(&mut self, _: usize) -> Option<&mut dyn MountableLayout> { None }
+
+    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
+        if self.anim.start.is_some() && !self.anim.is_done {
+            self.step(&mut (), relayout.animation);
+        }
+        self.default_relayout(relayout);
     }
 }

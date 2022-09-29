@@ -156,8 +156,12 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsMountableLayout + 's
         }
     }
 
-    /* default relayout implementation is to just relayout the children */
     fn relayout(&mut self, relayout: &mut ScreenRelayout) {
+        self.default_relayout(relayout);
+    }
+
+    /* default relayout implementation is to just relayout the children */
+    fn default_relayout(&mut self, relayout: &mut ScreenRelayout) {
         relayout.children_of(self.as_trait_mut());
     }
 }

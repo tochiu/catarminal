@@ -29,6 +29,24 @@ pub struct SpaceAnimation {
     stopped: bool
 }
 
+pub struct TweenInfo {
+    pub duration: f32,
+    pub style: EasingStyle,
+    pub direction: EasingDirection,
+    pub delay: f32
+}
+
+impl Default for TweenInfo {
+    fn default() -> Self {
+        TweenInfo { 
+            duration: 1.0, 
+            style: EasingStyle::Linear, 
+            direction: EasingDirection::Out, 
+            delay: 0.0 
+        }
+    }
+}
+
 impl SpaceAnimation {
     pub fn new(service: &mut ScreenAnimationService, space0: Space, space1: Space, duration: f32, style: EasingStyle, direction: EasingDirection) -> Self {
         service.add();

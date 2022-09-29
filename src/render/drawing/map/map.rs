@@ -44,7 +44,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
+    pub fn new(mut tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
         let robber_init_tile_position = parse::MAP_GRAPH.tile_points
             .get(
                 tiles
@@ -153,6 +153,11 @@ impl Map {
         self.roads[idx0][idx1].as_mut().unwrap().build(style, anim_service);
     }
 
+    pub fn place_tile(&mut self, tile: usize, anim_service: &mut ScreenAnimationService) {
+        //self.tiles[tile].build(Style::default(), anim_service);
+        self.tiles[tile].play_animation(anim_service);
+    }
+
     pub fn place_building(&mut self, road: usize, kind: enums::Building, style: Style, anim_service: &mut ScreenAnimationService) {
         if self.buildings[road].kind != kind {
             let mut mount = *self.buildings[road].mount_ref(); // manual remounting
@@ -226,7 +231,12 @@ impl MountableLayout for Map {
                 if i >= self.road_index.len() {
                     i -= self.road_index.len();
                     if i >= self.buildings.len() {
-                        None
+                        i -= self.buildings.len();
+                        if i >= self.tiles.len() {
+                            None
+                        } else {
+                            Some(self.tiles[i].as_trait_ref())
+                        }
                     } else {
                         Some(self.buildings[i].as_trait_ref())
                     }
@@ -245,7 +255,12 @@ impl MountableLayout for Map {
                 if i >= self.road_index.len() {
                     i -= self.road_index.len();
                     if i >= self.buildings.len() {
-                        None
+                        i -= self.buildings.len();
+                        if i >= self.tiles.len() {
+                            None
+                        } else {
+                            Some(self.tiles[i].as_trait_mut())
+                        }
                     } else {
                         Some(self.buildings[i].as_trait_mut())
                     }
