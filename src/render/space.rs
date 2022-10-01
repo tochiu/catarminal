@@ -291,14 +291,6 @@ impl AbsoluteSpace {
         i16::try_from(self.top() as i32 + self.size.y as i32).unwrap()
     }
 
-    pub fn width(self) -> u16 {
-        self.size.x
-    }
-
-    pub fn height(self) -> u16 {
-        self.size.y
-    }
-
     pub fn intersection(self, other: AbsoluteSpace) -> AbsoluteSpace {
         let x1 = max(self.left(), other.left());
         let y1 = max(self.top(), other.top());
