@@ -160,6 +160,20 @@ impl Lerp for UDim {
     }
 }
 
+impl Add<UDim> for UDim {
+    type Output = UDim;
+    fn add(self, rhs: UDim) -> Self::Output {
+        UDim::new(self.scale + rhs.scale, self.offset + rhs.offset)
+    }
+}
+
+impl Sub<UDim> for UDim {
+    type Output = UDim;
+    fn sub(self, rhs: UDim) -> Self::Output {
+        UDim::new(self.scale - rhs.scale, self.offset - rhs.offset)
+    }
+}
+
 /*
  * 2D variant of UDim
  * This is the main struct used to define draw / layout spaces with respect to a parent space
@@ -198,6 +212,20 @@ impl UDim2 {
             i16::try_from(size.x).unwrap(), 
             i16::try_from(size.y).unwrap()
         )
+    }
+}
+
+impl Add<UDim2> for UDim2 {
+    type Output = UDim2;
+    fn add(self, rhs: UDim2) -> Self::Output {
+        UDim2 { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
+impl Sub<UDim2> for UDim2 {
+    type Output = UDim2;
+    fn sub(self, rhs: UDim2) -> Self::Output {
+        UDim2 { x: self.x - rhs.x, y: self.y - rhs.y }
     }
 }
 
