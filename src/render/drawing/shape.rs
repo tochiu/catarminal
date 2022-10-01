@@ -335,3 +335,16 @@ impl<'a> Drawable for StringShape<'_> {
         }
     }
 }
+
+pub struct Ellipse;
+
+impl Ellipse {
+    pub fn bits(canvas_size: Size2D, semiaxis_size_x: f32, semiaxis_size_y: f32) -> BitShape {
+        let h = 0.5*canvas_size.x as f32;
+        let k = 0.5*canvas_size.y as f32;
+        let a = semiaxis_size_x;
+        let b = semiaxis_size_y;
+        
+        BitShape::paint(canvas_size, |x, y| ((x as f32 + 0.5 - h)/a).powi(2) + ((y as f32 + 0.5 - k)/b).powi(2) <= 1.0)
+    }
+}
