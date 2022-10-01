@@ -11,10 +11,19 @@ use super::{
 use std::time::Instant;
 
 /* animatable structs implement this trait to define a target type to advance using animation state */
+// TODO: REQUIRE PLAY METHOD, REMOVE TARGET & ENCAPSULATE ANIMATION WITHIN STRUCT, ONUS IS ON CALLER TO REPLICATE CHANGES
 pub trait Animatable {
     type Target: ?Sized;
     fn step(&mut self, target: &mut Self::Target, service: &mut ScreenAnimationService);
     fn cancel(&mut self, service: &mut ScreenAnimationService);
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub enum PlaybackState {
+    #[default]
+    Init,
+    Playing,
+    Stopped
 }
 
 /* SpaceAnimation is what is used to animate layout spaces */
