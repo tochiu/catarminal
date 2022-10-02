@@ -141,7 +141,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let mut frame_number: u128 = 0;
+    //let mut frame_number: u128 = 0;
     let mut delay_ms = 0;
 
     loop {
@@ -192,7 +192,7 @@ pub fn run(enable_logger: bool) -> Result<(), io::Error> {
         }
 
         //log::info!("drawing frame #{:?}", frame_number);
-        frame_number += 1;
+        //frame_number += 1;
 
         terminal.draw(|f| {
             if enable_logger {

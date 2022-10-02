@@ -44,7 +44,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(mut tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
+    pub fn new(tiles: Vec<Tile>, ports: Vec<Port>) -> Self {
         let robber_init_tile_position = parse::MAP_GRAPH.tile_points
             .get(
                 tiles
@@ -154,8 +154,7 @@ impl Map {
     }
 
     pub fn place_tile(&mut self, tile: usize, anim_service: &mut ScreenAnimationService) {
-        //self.tiles[tile].build(Style::default(), anim_service);
-        self.tiles[tile].play_animation(anim_service);
+        self.tiles[tile].play(anim_service);
     }
 
     pub fn place_building(&mut self, road: usize, kind: enums::Building, style: Style, anim_service: &mut ScreenAnimationService) {
