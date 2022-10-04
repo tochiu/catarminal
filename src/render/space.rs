@@ -7,7 +7,7 @@
  */
 
 use std::cmp::{max, min};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Sub, Mul};
 use tui::layout::Rect;
 
 /* 
@@ -29,6 +29,10 @@ pub struct Point2D {
 impl Point2D {
     pub const fn new(x: i16, y: i16) -> Self {
         Point2D { x, y }
+    }
+
+    pub const fn to_float2d(self) -> Float2D {
+        Float2D::new(self.x as f32, self.y as f32)
     }
 }
 
@@ -75,6 +79,14 @@ impl Size2D {
         Size2D { x, y }
     }
 
+    pub const fn to_float2d(self) -> Float2D {
+        Float2D::new(self.x as f32, self.y as f32)
+    }
+
+    pub fn to_rect(self) -> Rect {
+        Rect::new(0, 0, self.x, self.y)
+    }
+
     pub fn area(self) -> u16 {
         self.x.checked_mul(self.y).unwrap()
     }
@@ -110,26 +122,40 @@ impl Lerp for Size2D {
     }
 }
 
-// 2D relative scale
+// 2D f32
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Scale2D {
+pub struct Float2D {
     pub x: f32,
     pub y: f32
 }
 
-impl Scale2D {
-    pub const CENTER: Scale2D = Scale2D::new(0.5, 0.5);
+impl Float2D {
+    pub const CENTER: Float2D = Float2D::new(0.5, 0.5);
     pub const fn new(x: f32, y: f32) -> Self {
-        Scale2D { x, y }
+        Float2D { x, y }
     }
 }
 
-impl Lerp for Scale2D {
+impl Lerp for Float2D {
     fn lerp(self, to: Self, alpha: f32) -> Self {
-        Scale2D { 
+        Float2D { 
             x: self.x + (to.x - self.x)*alpha, 
             y: self.y + (to.y - self.y)*alpha
         }
+    }
+}
+
+impl Mul<f32> for Float2D {
+    type Output = Float2D;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Float2D::new(rhs*self.x, rhs*self.y)
+    }
+}
+
+impl Mul<Float2D> for f32 {
+    type Output = Float2D;
+    fn mul(self, rhs: Float2D) -> Self::Output {
+        rhs*self
     }
 }
 
@@ -271,6 +297,27 @@ impl AbsoluteSpace {
         )
     }
 
+    pub fn from_point_cloud(points: &[Point2D]) -> Self {
+        let mut point_iter = points.iter();
+        let mut top_left = *point_iter.next().unwrap();
+        let mut bottom_right = top_left;
+
+        for point in point_iter {
+            top_left.x = top_left.x.min(point.x);
+            top_left.y = top_left.y.min(point.y);
+            bottom_right.x = bottom_right.x.max(point.x);
+            bottom_right.y = bottom_right.y.max(point.y);
+        }
+
+        AbsoluteSpace {
+            position: top_left,
+            size: Size2D::new(
+                (bottom_right.x - top_left.x + 1) as u16, 
+                (bottom_right.y - top_left.y + 1) as u16
+            )
+        }
+    }
+
     pub fn area(self) -> u16 {
         self.size.x.checked_mul(self.size.y).unwrap()
     }
@@ -330,6 +377,13 @@ impl AbsoluteSpace {
         Point2D {
             x: absolute_position.x.checked_sub(self.position.x).unwrap(),
             y: absolute_position.y.checked_sub(self.position.y).unwrap()
+        }
+    }
+
+    pub fn absolute_space_of(self, absolute_space: AbsoluteSpace) -> AbsoluteSpace {
+        AbsoluteSpace {
+            size: absolute_space.size,
+            position: self.absolute_position_of(absolute_space.position)
         }
     }
 
@@ -408,19 +462,19 @@ impl Iterator for AbsoluteSpaceIterator {
 pub struct Space {
     pub size: UDim2,
     pub position: UDim2,
-    pub anchor: Scale2D
+    pub anchor: Float2D
 }
 
 impl Space {
 
     pub const FULL: Space = Space::sized(UDim2::from_scale(1.0, 1.0));
 
-    pub const fn new(size: UDim2, position: UDim2, anchor: Scale2D) -> Self {
+    pub const fn new(size: UDim2, position: UDim2, anchor: Float2D) -> Self {
         Space { size, position, anchor }
     }
 
     pub const fn sized(size: UDim2) -> Self {
-        Space::new(size, UDim2::new(0.0, 0, 0.0, 0), Scale2D::new(0.0, 0.0))
+        Space::new(size, UDim2::new(0.0, 0, 0.0, 0), Float2D::new(0.0, 0.0))
     }
 
     /* for a given parent AbsoluteSpace, compute the AbsoluteSpace of this Space */
@@ -465,7 +519,7 @@ impl Space {
         Space {
             size: self.size,
             position: UDim2::CENTER,
-            anchor: Scale2D::CENTER
+            anchor: Float2D::CENTER
         }
     }
 }

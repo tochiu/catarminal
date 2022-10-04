@@ -1,19 +1,6 @@
-use super::{
-    map::{self, Map},
-    drag::Dragger,
-    super::{
-        draw::*,
-        mount::*,
-        screen::*, 
-        space::*
-    }, 
-    players::{
-        self,
-        PlayerFrame, 
-        PlayerFrameState, 
-        PlayerList
-    }
-};
+use super::{players::{self, *}, map::{self, Map}, drag::Dragger};
+
+use crate::render::prelude::*;
 
 use tui::{
     layout::*, 
@@ -23,10 +10,10 @@ use tui::{
 
 #[derive(Debug, Default)]
 struct GameRegions {
-    map: Rect,
-    events: Rect,
-    chat: Rect,
-    players: Rect
+    map: AbsoluteSpace,
+    events: AbsoluteSpace,
+    chat: AbsoluteSpace,
+    players: AbsoluteSpace
 }
 
 #[derive(Debug)]
@@ -76,30 +63,30 @@ impl Layoutable for Game {
 }
 
 impl StatefulDrawable for Game {
-    type State = NoDrawState;
-    fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
-        area.draw_widget(
+    type State = ();
+    fn stateful_draw(&self, ctx: &mut DrawContext, state: &Self::State) {
+        ctx.draw_widget(
             Block::default()
                 .title(" Map ")
                 .border_style(Style::default().fg(Color::White).bg(Color::Black))
                 .borders(Borders::ALL), 
             self.regions.map
         );
-        area.draw_widget(
+        ctx.draw_widget(
             Block::default()
                 .title(" Events ")
                 .border_style(Style::default().fg(Color::White).bg(Color::Black))
                 .borders(Borders::ALL), 
             self.regions.events
         );
-        area.draw_widget(
+        ctx.draw_widget(
             Block::default()
                 .title(" Chat ")
                 .border_style(Style::default().fg(Color::White).bg(Color::Black))
                 .borders(Borders::ALL), 
             self.regions.chat
         );
-        area.draw_widget(
+        ctx.draw_widget(
             Block::default()
                 .title(" Players ")
                 .border_style(Style::default().fg(Color::White).bg(Color::Black))
@@ -107,8 +94,8 @@ impl StatefulDrawable for Game {
             self.regions.players
         );
         
-        area.draw_stateful_child(&self.map_dragger, state);
-        area.draw_stateful_child(&self.players, &[
+        ctx.draw_stateful_child(&self.map_dragger, state);
+        ctx.draw_stateful_child(&self.players, &[
             // TEST DATA
             PlayerFrameState {
                 victory_point_count: 9,
@@ -151,8 +138,8 @@ impl MountableLayout for Game {
         } 
     }
 
-    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
-        let space = relayout.get_absolute_layout_of(self).to_rect();
+    fn relayout(&mut self, ctx: &mut LayoutContext) {
+        let space = ctx.get_absolute_size_of(self).to_rect();
         let rects = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(space.width.saturating_sub(39)), Constraint::Min(39)].as_ref())
@@ -168,15 +155,15 @@ impl MountableLayout for Game {
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
             .split(right_pane_rects[0]);
 
-        self.regions.map = rects[0];
-        self.regions.events = chat_event_rects[0];
-        self.regions.chat = chat_event_rects[1];
-        self.regions.players = right_pane_rects[1];
+        self.regions.map = AbsoluteSpace::from_rect(rects[0]);
+        self.regions.events = AbsoluteSpace::from_rect(chat_event_rects[0]);
+        self.regions.chat = AbsoluteSpace::from_rect(chat_event_rects[1]);
+        self.regions.players = AbsoluteSpace::from_rect(right_pane_rects[1]);
 
         let map_space = AbsoluteSpace::from_rect(
             Block::default()
                 .borders(Borders::ALL)
-                .inner(self.regions.map)
+                .inner(self.regions.map.to_rect())
         );
         self.map_dragger.layout.set_size(UDim2::from_size2d(map_space.size));
         self.map_dragger.layout.set_position(UDim2::from_point2d(map_space.position));
@@ -184,11 +171,11 @@ impl MountableLayout for Game {
         let players_space = AbsoluteSpace::from_rect(
             Block::default()
                 .borders(Borders::ALL)
-                .inner(self.regions.players)
+                .inner(self.regions.players.to_rect())
         );
         self.players.layout.set_position(UDim2::from_point2d(players_space.position));
         self.players.layout.set_size(UDim2::from_size2d(players_space.size));
         
-        relayout.children_of(self.as_trait_mut());
+        ctx.relayout_children_of(self.as_trait_mut());
     }
 }

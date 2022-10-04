@@ -1,8 +1,4 @@
-use super::super::{
-    draw::*,
-    space::*,
-    screen::*
-};
+use crate::render::{draw::*, space::*};
 
 use tui::style::Style;
 
@@ -53,15 +49,15 @@ impl Layoutable for SymbolCounter {
 
 impl StatefulDrawable for SymbolCounter {
     type State = u8;
-    fn stateful_draw(&self, mut area: ScreenArea, count: &u8) {
+    fn stateful_draw(&self, ctx: &mut DrawContext, count: &u8) {
         if self.kind == SymbolCounterKind::Card {
-            area.transform_cells(|cell| {
+            ctx.transform_cells(|cell| {
                 cell.set_style(self.style.bkg); 
             });
         }
         
-        area.draw_unicode_line(&self.symbol, SYMBOL_OFFSET, self.style.symbol);
-        area.draw_string_line(
+        ctx.draw_unicode_line(&self.symbol, SYMBOL_OFFSET, self.style.symbol);
+        ctx.draw_string_line(
             &format!("{:0width$}", (*count).min(99), width = 2 as usize), 
             if self.kind == SymbolCounterKind::Default
                 { DEFAULT_COUNTER_TEXT_OFFSET } else 

@@ -1,14 +1,4 @@
-use super::super::{
-    shape::{BitShape128, Shape128},
-    super::{
-        draw::{DrawLayout, Layoutable, Drawable},
-        mount::{Mount, MountableLayout},
-        screen::{ScreenArea, ScreenAnimationService},
-        space::*,
-        anim::*
-    }
-};
-
+use crate::render::prelude::*;
 use crate::enums;
 
 use tui::{style::{Style, Color}, buffer::Cell};
@@ -20,7 +10,7 @@ const PLACEMENT_Y_OFFSET: i16 = -10;
 pub trait Placement: MountableLayout {
     fn set_placement_style(&mut self, style: Style);
     fn get_placement_space(&self) -> Space;
-    fn build(&mut self, style: Style, service: &mut ScreenAnimationService) {
+    fn build(&mut self, style: Style, service: &mut AnimationService) {
         self.set_placement_style(style);
         let end_space = self.get_placement_space();
         let layout = self.layout_mut();
@@ -78,11 +68,11 @@ impl Placement for Road {
 }
 
 impl Drawable for Road {
-    fn draw(&self, mut area: ScreenArea) {
+    fn draw(&self, ctx: &mut DrawContext) {
         for offset in -1..=1 {
             let mut point = self.start + Point2D::new(offset, 0);
             for _ in 0..=self.steps {
-                if let Some(cell) = area.mut_cell_at(point) {
+                if let Some(cell) = ctx.cell_at_mut(point) {
                     cell.set_symbol(" ").set_style(self.style);
                 }
                 point = point + self.change;
@@ -150,10 +140,10 @@ impl Placement for Building {
 }
 
 impl Drawable for Building {
-    fn draw(&self, mut area: ScreenArea) {
-        area.draw_child(&Shape128::new(self.shape, " ", self.style, DrawLayout::default()));
+    fn draw(&self, ctx: &mut DrawContext) {
+        ctx.draw_child(&Shape128::new(self.shape, " ", self.style, DrawLayout::default()));
         for point in self.hole {
-            if let Some(cell) = area.mut_cell_at(point) {
+            if let Some(cell) = ctx.cell_at_mut(point) {
                 *cell = HOLE_CELL.clone();
             }
         }

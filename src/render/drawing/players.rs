@@ -1,14 +1,39 @@
-use super::super::{
-    counter::*,
-    super::{
-        draw::*,
-        space::*,
-        screen::*
-    }
-};
+use crate::render::{draw::*, space::*, drawing::counter::*};
 
 use tui::style::{Style, Color, Modifier};
 use unicode_width::UnicodeWidthStr;
+
+/* PlayerList */
+
+#[derive(Debug)]
+pub struct PlayerList {
+    pub frames: Vec<PlayerFrame>,
+    pub layout: DrawLayout
+}
+
+impl PlayerList {
+    pub fn new(mut frames: Vec<PlayerFrame>, layout: DrawLayout) -> Self {
+        for (i, frame) in frames.iter_mut().enumerate() {
+            frame.layout
+                .set_position(UDim2::new(0.5, 0, 1.0, -(i as i16)*(PLAYER_FRAME_SIZE.y.offset as i16)))
+                .set_anchor(Float2D::new(0.5, 1.0));
+        }
+        PlayerList { frames, layout }
+    }
+}
+
+impl Layoutable for PlayerList {
+    fn layout_ref(&self) -> &DrawLayout { &self.layout }
+    fn layout_mut(&mut self) -> &mut DrawLayout { &mut self.layout }
+}
+
+impl StatefulDrawable for PlayerList {
+    type State = [PlayerFrameState];
+
+    fn stateful_draw(&self, ctx: &mut DrawContext, state: &Self::State) {
+        ctx.draw_stateful_children(self.frames.as_slice(), state);
+    }
+}
 
 pub const PLAYER_FRAME_SIZE: UDim2 = UDim2::new(1.0, 0, 0.0, 5);
 
@@ -31,6 +56,8 @@ pub struct PlayerFrame {
     
     pub layout: DrawLayout
 }
+
+/* PlayerFrame */
 
 lazy_static! {
     static ref CARD_SYMBOL_STYLE: Style = Style::default().fg(Color::White);
@@ -109,29 +136,29 @@ impl Layoutable for PlayerFrame {
 impl StatefulDrawable for PlayerFrame {
     type State = PlayerFrameState;
 
-    fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
-        area.draw_stateful_child(&self.army_counter, &state.largest_army_count);
-        area.draw_stateful_child(&self.road_counter, &state.longest_road_count);
-        area.draw_stateful_child(&self.resource_counter, &state.resource_card_count);
-        area.draw_stateful_child(&self.development_counter, &state.development_card_count);
+    fn stateful_draw(&self, ctx: &mut DrawContext, state: &Self::State) {
+        ctx.draw_stateful_child(&self.army_counter, &state.largest_army_count);
+        ctx.draw_stateful_child(&self.road_counter, &state.longest_road_count);
+        ctx.draw_stateful_child(&self.resource_counter, &state.resource_card_count);
+        ctx.draw_stateful_child(&self.development_counter, &state.development_card_count);
 
         let vp_string = &format!("🏆: {:0width$}", state.victory_point_count.min(99), width = 2 as usize);
 
-        area.draw_unicode_line(
+        ctx.draw_unicode_line(
             &vp_string,
-            Point2D::new((area.absolute_layout_space.size.x as i16 - vp_string.width() as i16)/2, 1),
+            Point2D::new((ctx.absolute_layout_space.size.x as i16 - vp_string.width() as i16)/2, 1),
             Style::default()
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD)
         );
-        area.draw_unicode_line(
-            &tui::symbols::line::NORMAL.horizontal.repeat(area.absolute_layout_space.size.x as usize),
+        ctx.draw_unicode_line(
+            &tui::symbols::line::NORMAL.horizontal.repeat(ctx.absolute_layout_space.size.x as usize),
             Point2D::new(0, 0),
             Style::default().fg(Color::White)
         );
-        area.draw_string_line(
+        ctx.draw_string_line(
             &format!(" {} ", self.player_name),
-            Point2D::new((area.absolute_layout_space.size.x as i16 - self.player_name.len() as i16)/2 - 1, 0),
+            Point2D::new((ctx.absolute_layout_space.size.x as i16 - self.player_name.len() as i16)/2 - 1, 0),
             Style::default()
                 .fg(self.player_color)
                 .add_modifier(Modifier::BOLD)

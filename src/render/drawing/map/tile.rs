@@ -1,14 +1,6 @@
-use super::{super::{
-    shape::*,
-    super::{
-        draw::*,
-        space::*,
-        screen::*,
-        anim::*,
-        mount::*
-    }
-}, MAP_SAND_COLOR};
+use super::{MAP_SAND_COLOR, parse};
 
+use crate::render::prelude::*;
 use crate::enums;
 
 use tui::{
@@ -16,8 +8,6 @@ use tui::{
     buffer::Buffer, 
     layout::Rect
 };
-
-use std::time::Instant;
 
 const DIGITS: [BitShape128; 10] = [
     BitShape128::new(0b0111010001100011000101110, Size2D::new(5, 5)),
@@ -35,9 +25,11 @@ const DIGITS: [BitShape128; 10] = [
 pub const TILE_SIZE: Size2D = Size2D::new(25, 11);
 
 const TILE_RARITY_SYMBOL: &'static str = "⬤";
-const TILE_SYMBOL_OFFSET: Point2D = Point2D::new((TILE_SIZE.x/2) as i16, 1);
+const TILE_SYMBOL_OFFSET: Point2D = Point2D::new((TILE_SIZE.x/2 - 1) as i16, 1);
 const TILE_BEST_FONT_COLOR: Color = Color::Red;
 const TILE_FONT_COLOR: Color = Color::White;
+
+const TILE_ELEMENT_FALL_DURATION_PER_PIXEL: f32 = 0.025;
 
 lazy_static! {
 
@@ -74,7 +66,7 @@ pub struct Tile {
     digit0: Option<Shape128>,
     digit1: Option<Shape128>,
     mount: Mount,
-    anim: TileAnimation
+    anim: TileAnimation // TODO: Option<Box<>> it
 }
 
 impl Tile {
@@ -108,7 +100,7 @@ impl Tile {
                     &DIGITS[(roll % 10) as usize], " ", digit_style,
                     DrawLayout::default()
                         .set_position(UDim2::new(0.5, 1, 0.5, 0))
-                        .set_anchor(Scale2D::new(0.0, 0.5))
+                        .set_anchor(Float2D::new(0.0, 0.5))
                         .clone()
                 ))
             }
@@ -121,7 +113,7 @@ impl Tile {
                     &DIGITS[(roll as usize / 10) % 10],  " ", digit_style,
                     DrawLayout::default()
                         .set_position(UDim2::new(0.5, -1, 0.5, 0))
-                        .set_anchor(Scale2D::new(1.0, 0.5))
+                        .set_anchor(Float2D::new(1.0, 0.5))
                         .clone()
                 ))
             }
@@ -132,22 +124,18 @@ impl Tile {
             resource,
             is_best,
             bkg,
-            anim: TileAnimation::new(
-                rarity, 
-                digit0.as_ref().map(|digit0| digit0.layout.space), 
-                digit1.as_ref().map(|digit1| digit1.layout.space)
-            ),
+            anim: TileAnimation::new(rarity),
             digit0,
             digit1,
             mount: Mount::default()
         }
     }
 
-    pub fn play(&mut self, anim_service: &mut ScreenAnimationService) {
+    pub fn play(&mut self, anim_service: &mut AnimationService) {
         self.anim.play(anim_service);
     }
 
-    fn draw_area(&self, area: &mut ScreenArea) {
+    fn draw_common(&self, area: &mut DrawContext) {
         area.draw_child(&self.bkg);
         area.draw_unicode_line(
             self.resource.get_symbol(), 
@@ -162,6 +150,17 @@ impl Tile {
             area.draw_child(digit);
         }
     }
+
+    /* util */
+    pub fn get_map_fall_parameters(&self, goal: Point2D, height: i16) -> (Point2D, f32) {
+        let absolute_tile_space = self.layout.space.to_absolute_space(AbsoluteSpace {
+            size: parse::MAP_BKG_SHAPE.shape.size,
+            position: Point2D::new(0, 0)
+        });
+        let absolute_goal = absolute_tile_space.absolute_position_of(goal);
+        let duration = (TILE_ELEMENT_FALL_DURATION_PER_PIXEL*(absolute_goal.y as f32 - height as f32)).abs();
+        (Point2D::new(absolute_goal.x, height), duration)
+    }
 }
 
 impl Layoutable for Tile {
@@ -170,29 +169,30 @@ impl Layoutable for Tile {
 }
 
 impl Drawable for Tile {
-    fn draw(&self, mut area: ScreenArea) {
-        if self.anim.bkg_alpha == 1.0 {
-            self.draw_area(&mut area);
+    fn draw(&self, ctx: &mut DrawContext) {
+        let animator = &self.anim.animator;
+
+        if animator.bkg_alpha == 1.0 {
+            self.draw_common(ctx);
         } else {
-            area.draw_child(&*TILE_EMPTY_BKG_SHAPE);
-            if self.anim.bkg_alpha > 0.0 {
+            ctx.draw_child(&*TILE_EMPTY_BKG_SHAPE);
+            if animator.bkg_alpha > 0.0 {
+                // TODO: move buffer into a refcell in the animation struct so this doesnt get instanced every anim frame
                 let mut tile_buf = Buffer::empty(Rect::new(0, 0, TILE_SIZE.x, TILE_SIZE.y));
-                let mut tile_area = ScreenArea::from_buffer(&mut tile_buf);
-                self.draw_area(&mut tile_area);
+                let mut tile_area = DrawContext::from_buffer(&mut tile_buf);
 
-                let a = 0.5*self.anim.bkg_alpha*TILE_SIZE.x.max(2*TILE_SIZE.y) as f32; // 2*y because font height is twice font width
-                let b = 0.5*a; // font height in terminal is twice width so to account for this the ellipsis y axis must be half the x axis
+                self.draw_common(&mut tile_area);
 
-                tile_area.bitmask(&Ellipse::bits(TILE_SIZE, a, b));
-                area.overlay(&mut tile_buf);
+                tile_area.retain(Ellipse::scaled_circle_painter(TILE_SIZE, 0.5*TILE_SIZE.to_float2d(), animator.bkg_alpha));
+                ctx.overlay(&mut tile_buf);
             }
         }
 
         if self.resource != enums::TileResource::OfDesert {
-            for (i, &alpha) in self.anim.rarity_alphas.iter().take(self.anim.rarity as usize).enumerate() {
+            for (i, &alpha) in animator.rarity_alphas.iter().take(animator.rarity as usize).enumerate() {
                 let start = Point2D::new(0, TILE_SIZE.y as i16 - 2);
                 let end = Point2D::new(
-                    (TILE_SIZE.x as i16 - (2*self.anim.rarity as i16 - 1))/2 + 2*(self.anim.rarity as usize - 1 - i) as i16, 
+                    (TILE_SIZE.x as i16 - (2*animator.rarity as i16 - 1))/2 + 2*(animator.rarity as usize - 1 - i) as i16, 
                     TILE_SIZE.y as i16 - 2
                 );
                 
@@ -201,8 +201,8 @@ impl Drawable for Tile {
                 let x = u16::try_from(pos.x);
                 let y = u16::try_from(pos.y);
 
-                if x.is_ok() && y.is_ok() && self.bkg.shape.is_filled_at(x.unwrap(), y.unwrap()) {
-                    if let Some(cell) = area.mut_cell_at(pos) {
+                if x.is_ok() && y.is_ok() && self.bkg.bitshape.is_filled_at(x.unwrap(), y.unwrap()) {
+                    if let Some(cell) = ctx.cell_at_mut(pos) {
                         cell.set_symbol(TILE_RARITY_SYMBOL);
                         cell.set_fg(if self.is_best { TILE_BEST_FONT_COLOR } else { TILE_FONT_COLOR });
                     }   
@@ -218,119 +218,170 @@ impl MountableLayout for Tile {
     fn child_ref(&self, _: usize) -> Option<&dyn MountableLayout> { None }
     fn child_mut(&mut self, _: usize) -> Option<&mut dyn MountableLayout> { None }
 
-    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
-        if self.anim.playback == PlaybackState::Playing {
-            self.anim.step(&mut (), relayout.animation);
+    fn relayout(&mut self, ctx: &mut LayoutContext) {
+        if self.anim.state.playback == PlaybackState::Playing {
+            self.anim.update(&mut ());
         }
-        if let Some(digit0) = self.digit0.as_mut() {
-            digit0.layout.set_space(self.anim.digit0_spaces.unwrap().0.lerp(self.anim.digit0_spaces.unwrap().1, self.anim.digit0_alpha));
-        }
-        if let Some(digit1) = self.digit1.as_mut() {
-            digit1.layout.set_space(self.anim.digit1_spaces.unwrap().0.lerp(self.anim.digit1_spaces.unwrap().1, self.anim.digit1_alpha));
-        }
-        self.default_relayout(relayout);
+        ctx.relayout_children_of(self);
     }
 }
-
-// TODO: implementation could be cleaner but this requires a redesign of the animation service and anim.rs
 
 #[derive(Debug, Default)]
-struct TileAnimation {
+struct TileAnimator {
     bkg_alpha: f32,
-
     rarity: u8,
     rarity_alphas: [f32; 6],
-
-    digit0_spaces: Option<(Space, Space)>,
-    digit0_alpha: f32,
-
-    digit1_spaces: Option<(Space, Space)>,
-    digit1_alpha: f32,
-    
-    duration: f32,
-    start: Option<Instant>,
-    playback: PlaybackState
 }
 
-impl TileAnimation {
+impl TileAnimator {
     const BKG_DURATION: f32 = 0.5;
-    const DIGIT_DURATION: f32 = 0.5;
-    const DIGIT_DELAY: f32 = 0.3;
     const ROLL_RARITY_DOT_DURATION: f32 = 1.0;
     const ROLL_RARITY_DOT_DELAY: f32 = 0.3;
+    const ROLL_RARITY_START_TIME: f32 = 0.0;
+}
 
-    fn new(rarity: u8, digit0_space: Option<Space>, digit1_space: Option<Space>) -> Self {
+type TileAnimation = Animation<TileAnimator>;
+
+impl TileAnimation {
+    fn new(rarity: u8) -> Self {
         let rarity_duration = if rarity > 0
-            { Self::ROLL_RARITY_DOT_DURATION + Self::ROLL_RARITY_DOT_DELAY*(rarity.saturating_sub(1) as f32) } else
+            { TileAnimator::ROLL_RARITY_DOT_DURATION + TileAnimator::ROLL_RARITY_DOT_DELAY*(rarity.saturating_sub(1) as f32) } else
             { 0.0 };
-        let digits_duration = if digit0_space.is_some() 
-            { Self::DIGIT_DURATION + if digit1_space.is_some() { Self::DIGIT_DELAY } else { 0.0 }} else 
-            { 0.0 };
-
-        let transform = |space: Space| (Space::new(space.size, UDim2 { x: space.position.x, y: UDim::new(0.0, -1) }, Scale2D::new(space.anchor.x, 1.0)), space);
-
-        TileAnimation {
-            rarity,
-            digit0_spaces: digit0_space.map(transform),
-            digit0_alpha: 0.0,
-            digit1_spaces: digit1_space.map(transform),
-            digit1_alpha: 0.0,
-            duration: Self::BKG_DURATION + f32::max(rarity_duration, digits_duration),
-            ..Default::default()
-        }
-    }
-
-    // assumed to be called once per tile instance
-    fn play(&mut self, anim_service: &mut ScreenAnimationService) {
-        self.playback = PlaybackState::Playing;
-        self.start = Some(Instant::now());
-        anim_service.add();
+        Animation::with_duration(
+            f32::max(TileAnimator::BKG_DURATION, TileAnimator::ROLL_RARITY_START_TIME + rarity_duration), 
+            TileAnimator { rarity, ..Default::default() }
+        )
     }
 }
 
-impl Animatable for TileAnimation {
+impl Animator for TileAnimator {
     type Target = ();
-
-    fn step(&mut self, _: &mut Self::Target, service: &mut ScreenAnimationService) {
-        let elapsed = self.start.unwrap().elapsed().as_secs_f32().min(self.duration);
-        if elapsed == self.duration {
-            self.playback = PlaybackState::Stopped;
-            service.sub();
-        }
-
+    fn update(&mut self, state: &AnimationState, _: &mut Self::Target) {
+        let elapsed = state.get_elapsed();
         self.bkg_alpha = ease((elapsed/Self::BKG_DURATION).min(1.0), EasingStyle::Cubic, EasingDirection::InOut);
         for (i, alpha_rarity) in self.rarity_alphas.iter_mut().take(self.rarity as usize).enumerate() {
             let alpha = (
                 (elapsed
-                    - Self::BKG_DURATION 
-                    - Self::ROLL_RARITY_DOT_DELAY*i as f32
-                )/Self::ROLL_RARITY_DOT_DURATION
-            ).min(1.0).max(0.0);
+                    - TileAnimator::ROLL_RARITY_START_TIME 
+                    - TileAnimator::ROLL_RARITY_DOT_DELAY*i as f32
+                )/TileAnimator::ROLL_RARITY_DOT_DURATION
+            ).clamp(0.0, 1.0);
             *alpha_rarity = ease(alpha, EasingStyle::Cubic, EasingDirection::InOut);
         }
+    }
+}
 
-        if self.digit0_spaces.is_some() {
-            if self.digit1_spaces.is_some() {
-                if self.digit0_spaces.is_some() {
-                    let alpha = ((elapsed - Self::BKG_DURATION - Self::DIGIT_DELAY)/Self::DIGIT_DURATION).min(1.0).max(0.0);
-                    self.digit0_alpha = ease(alpha, EasingStyle::Cubic, EasingDirection::Out);
-                }
-        
-                if self.digit1_spaces.is_some() {
-                    let alpha = ((elapsed - Self::BKG_DURATION)/Self::DIGIT_DURATION).min(1.0).max(0.0);
-                    self.digit1_alpha = ease(alpha, EasingStyle::Cubic, EasingDirection::Out);
-                }
+/* this is meant to be instanced by the map */
+pub type TileDigitsAnimation = Animation<TileDigitsAnimator>;
+
+#[derive(Debug)]
+pub struct TileDigitsAnimator {
+    pub digit0: Option<DigitAnimator>,
+    pub digit1: Option<DigitAnimator>
+}
+
+impl TileDigitsAnimator {
+    const DIGIT_DELAY: f32 = 0.3;
+}
+
+impl TileDigitsAnimation {
+    pub fn new(tile: &Tile) -> Self {
+        let digit0 = tile.digit0.as_ref().map(|digit| DigitAnimator::new(tile, digit, if tile.digit1.is_some() { TileDigitsAnimator::DIGIT_DELAY } else { 0.0 }));
+        let digit1 = tile.digit1.as_ref().map(|digit| DigitAnimator::new(tile, digit, 0.0));
+
+        let mut duration: f32 = 0.0;
+        if let Some(digit) = digit0.as_ref() {
+            duration = duration.max(digit.delay + digit.duration);
+        }
+        if let Some(digit) = digit1.as_ref() {
+            duration = duration.max(digit.delay + digit.duration);
+        }
+
+        Animation::with_duration(duration, TileDigitsAnimator { digit0, digit1 })
+    }
+}
+
+impl Animator for TileDigitsAnimator {
+    type Target = Tile;
+
+    fn update(&mut self, state: &AnimationState, target: &mut Self::Target) {
+        let elapsed = state.get_elapsed();
+        if let Some(anim) = self.digit0.as_mut() {
+            anim.update(elapsed);
+            if anim.done {
+                self.digit0 = None;
+                target.digit0.as_mut().unwrap().layout.set_visible(true);
             } else {
-                if self.digit0_spaces.is_some() {
-                    let alpha = ((elapsed - Self::BKG_DURATION)/Self::DIGIT_DURATION).min(1.0).max(0.0);
-                    self.digit0_alpha = ease(alpha, EasingStyle::Cubic, EasingDirection::Out);
-                }
+                target.digit0.as_mut().unwrap().layout.set_visible(false);
+            }
+        }
+
+        if let Some(anim) = self.digit1.as_mut() {
+            anim.update(elapsed);
+            if anim.done {
+                self.digit1 = None;
+                target.digit1.as_mut().unwrap().layout.set_visible(true);
+            } else {
+                target.digit1.as_mut().unwrap().layout.set_visible(false);
             }
         }
     }
+}
 
-    fn cancel(&mut self, service: &mut ScreenAnimationService) {
-        self.playback = PlaybackState::Stopped;
-        service.sub();
+#[derive(Debug)]
+pub struct DigitAnimator {
+    space0: Space,
+    space1: Space,
+    duration: f32,
+    delay: f32,
+    pub digit: Shape128,
+    done: bool,
+    alpha: f32
+}
+
+impl DigitAnimator {
+    fn new(tile: &Tile, digit: &Shape128, delay: f32) -> DigitAnimator {
+        let absolute_tile_space = tile.layout.space.to_absolute_space(AbsoluteSpace {
+            size: parse::MAP_BKG_SHAPE.shape.size,
+            position: Point2D::new(0, 0)
+        });
+        let absolute_digit_space = digit.layout.space.to_absolute_space(absolute_tile_space);
+        let (start, duration) = tile.get_map_fall_parameters(
+            absolute_tile_space.relative_position_of(absolute_digit_space.position), 
+            -(absolute_digit_space.size.y as i16)
+        );
+        
+        DigitAnimator {
+            space0: Space::new(
+                UDim2::from_size2d(absolute_digit_space.size),
+                UDim2::from_point2d(start),
+                Float2D::default()
+            ),
+            space1: Space::new(
+                UDim2::from_size2d(absolute_digit_space.size),
+                UDim2::from_point2d(absolute_digit_space.position), 
+                Float2D::default()
+            ),
+            duration,
+            delay,
+            digit: digit.clone(),
+            done: false,
+            alpha: 0.0
+        }
+    }
+
+    pub fn update(&mut self, elapsed: f32) {
+        if self.done {
+            return
+        }
+
+        // check if elapsed is greater first to avoid precision bugs from calculating alpha
+        let alpha = if elapsed >= self.delay + self.duration { 1.0 } else { ((elapsed - self.delay)/self.duration).max(0.0) };
+        self.alpha = alpha;
+        if alpha == 1.0 {
+            self.done = true;
+        } else {
+            self.digit.layout.set_space(self.space0.lerp(self.space1, ease(alpha, EasingStyle::Cubic, EasingDirection::Out)));
+        }
     }
 }

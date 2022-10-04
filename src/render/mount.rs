@@ -5,14 +5,8 @@
  * this property allows them to communicate with the screen to capture input or trigger a rerender
  * mountable layouts are the only layouts that execute a relayout because relayouts can mutate screen state
  */
-
-use super::{
-    draw::*, 
-    screen::*, 
-    space::*,
-    iter::*, 
-    anim::*
-};
+use super::prelude::*;
+use super::iter::*;
 
 /* mount identifier */
 pub type MountId = u64;
@@ -82,22 +76,25 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsMountableLayout + 's
     // event handlers
 
     #[allow(unused_variables)]
-    fn on_mouse_input(&mut self, event: ScreenInputEvent) -> bool { false }
+    fn on_mouse_input(&mut self, event: InputEvent) -> bool { false }
     
     // required / utility
 
     /* animate the layout of the mountable */
-    fn animate_space_from(&mut self, service: &mut ScreenAnimationService, from: Space, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
+    fn animate_space_from(&mut self, anim_service: &mut AnimationService, from: Space, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
         let mut layout = self.layout_mut();
         if let Some(anim) = layout.anim.as_mut() {
-            anim.cancel(service);
+            anim.cancel(anim_service);
         }
+
+        let mut anim = Box::new(SpaceAnimation::new(from, to, duration, style, direction));
+        anim.play(anim_service);
         
-        layout.anim = Some(Box::new(SpaceAnimation::new(service, from, to, duration, style, direction)));
+        layout.anim = Some(anim);
     }
 
-    fn animate_space(&mut self, service: &mut ScreenAnimationService, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
-        self.animate_space_from(service, self.layout_ref().space, to, duration, style, direction)
+    fn animate_space(&mut self, anim_service: &mut AnimationService, to: Space, duration: f32, style: EasingStyle, direction: EasingDirection) {
+        self.animate_space_from(anim_service, self.layout_ref().space, to, duration, style, direction)
     }
 
     /* set the mount of the mountable and mount its descendants */
@@ -156,13 +153,8 @@ pub trait MountableLayout: Layoutable + std::fmt::Debug + AsMountableLayout + 's
         }
     }
 
-    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
-        self.default_relayout(relayout);
-    }
-
-    /* default relayout implementation is to just relayout the children */
-    fn default_relayout(&mut self, relayout: &mut ScreenRelayout) {
-        relayout.children_of(self.as_trait_mut());
+    fn relayout(&mut self, ctx: &mut LayoutContext) {
+        ctx.relayout_children_of(self.as_trait_mut());
     }
 }
 

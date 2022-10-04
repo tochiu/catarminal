@@ -1,12 +1,6 @@
-use tui::style::Style;
+use crate::render::{prelude::*, iter::CustomIterator};
 
-use super::super::{
-    space::*, 
-    mount::*, 
-    draw::*, 
-    screen::*, 
-    iter::CustomIterator
-};
+use tui::style::Style;
 
 #[derive(Debug)]
 pub struct Dragger<T: MountableLayout + StatefulDrawable> {
@@ -61,14 +55,14 @@ impl<T: MountableLayout + StatefulDrawable> Layoutable for Dragger<T> {
 
 impl<T: MountableLayout + StatefulDrawable> StatefulDrawable for Dragger<T> {
     type State = T::State;
-    fn stateful_draw(&self, mut area: ScreenArea, state: &Self::State) {
-        let mut itr = area.iter_cells_mut();
+    fn stateful_draw(&self, ctx: &mut DrawContext, state: &Self::State) {
+        let mut itr = ctx.iter_cells_mut();
         while let Some(cell) = itr.next() {
             cell.set_style(self.style);
         }
 
-        let canvas_space = self.get_absolute_canvas_space(area.absolute_layout_space);
-        area.transform(canvas_space).draw_stateful_child(&self.drawing, state);
+        let canvas_space = self.get_absolute_canvas_space(ctx.absolute_layout_space);
+        ctx.transform(canvas_space).draw_stateful_child(&self.drawing, state);
     }
 }
 
@@ -95,22 +89,22 @@ impl<T: MountableLayout + StatefulDrawable> MountableLayout for Dragger<T> {
         }
     }
 
-    fn relayout(&mut self, relayout: &mut ScreenRelayout) {
-        let absolute_window_space = relayout.get_absolute_layout_of(self);
+    fn relayout(&mut self, ctx: &mut LayoutContext) {
+        let absolute_window_space = ctx.get_absolute_layout_space_of(self);
         self.canvas_offset = self.get_constrained_canvas_offset(absolute_window_space);
         let absolute_canvas_space = self.get_absolute_canvas_space(absolute_window_space);
 
-        relayout.input_space_of(self.as_trait_mut(), Space::FULL);
-        relayout.children_in_space_of(self.as_trait_mut(), absolute_canvas_space);
+        ctx.relayout_input_space_of(self, Space::FULL);
+        ctx.relayout_children_in_space_of(self, absolute_canvas_space);
     }
 
-    fn on_mouse_input(&mut self, event: ScreenInputEvent) -> bool {
+    fn on_mouse_input(&mut self, event: InputEvent) -> bool {
         match event.kind {
-            ScreenInputEventKind::Down(point) => {
+            InputEventKind::Down(point) => {
                 self.mouse_location = point;
                 false
             },
-            ScreenInputEventKind::Drag(point) => {
+            InputEventKind::Drag(point) => {
                 let canvas_offset = Point2D::new(
                     self.canvas_offset.x.saturating_sub(point.x.saturating_sub(self.mouse_location.x)),
                     self.canvas_offset.y.saturating_sub(point.y.saturating_sub(self.mouse_location.y))

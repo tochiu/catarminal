@@ -3,10 +3,9 @@
  * a module of utility drawings that help with drawing shapes onto the screen
  * a "shape" is a drawing with arbitrary content but one style applied
  */
-use super::super::{
+use super::{
     space::*,
-    draw::*, 
-    screen::*
+    draw::*
 };
 
 use tui::style::Style;
@@ -14,7 +13,7 @@ use tui::style::Style;
 use unicode_segmentation::{UnicodeSegmentation, Graphemes};
 use unicode_width::UnicodeWidthStr;
 
-// TODO: allow arbitrary lifetimes for BitShape128, Shap128, BitShape, Shape
+// TODO: allow arbitrary lifetimes for BitShape128, Shape128, BitShape, Shape
 // TODO: MountableLayout structs that need to store shapes can specify a static lifetime themselves
 
  /*
@@ -41,20 +40,20 @@ impl BitShape128 {
  * Shape128 is a BitShape128 but with a defined symbol and style to fill the marked cells
  * and layout to position the shape
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Shape128 {
     pub layout: DrawLayout,
-    pub shape: &'static BitShape128,
+    pub bitshape: &'static BitShape128,
     pub symbol: &'static str,
     pub style: Style
 }
 
 impl Shape128 {
-    pub fn new(shape: &'static BitShape128, symbol: &'static str, style: Style, mut layout: DrawLayout) -> Self {
-        layout.set_size(UDim2::from_size2d(shape.size));
+    pub fn new(bitshape: &'static BitShape128, symbol: &'static str, style: Style, mut layout: DrawLayout) -> Self {
+        layout.set_size(UDim2::from_size2d(bitshape.size));
         Shape128 {
             layout,
-            shape, 
+            bitshape, 
             symbol,
             style
         }
@@ -67,16 +66,16 @@ impl Layoutable for Shape128 {
 }
 
 impl Drawable for Shape128 {
-    fn draw(&self, area: ScreenArea) {
-        for point in area.absolute_draw_space {
-            let bit_point = area.absolute_layout_space.relative_position_of(point);
+    fn draw(&self, ctx: &mut DrawContext) {
+        for point in ctx.absolute_draw_space {
+            let bit_point = ctx.absolute_layout_space.relative_position_of(point);
             /* 
              * y*xsize + x defines the amount of right shifting to get to the bit for this cell to the right
              * bitwise and with 1 and check if == 1 to see if the bit is a 1 
              */
-            if self.shape.bits >> ((bit_point.y as u16)*self.shape.size.x + bit_point.x as u16) & 1 == 1 {
-                let i = area.buf.index_of(point.x as u16, point.y as u16);
-                area.buf.content[i]
+            if self.bitshape.bits >> ((bit_point.y as u16)*self.bitshape.size.x + bit_point.x as u16) & 1 == 1 {
+                let i = ctx.buf.index_of(point.x as u16, point.y as u16);
+                ctx.buf.content[i]
                     .set_symbol(self.symbol)
                     .set_style(self.style);
             }
@@ -86,7 +85,8 @@ impl Drawable for Shape128 {
 
 /*
  * BitShape as BitShape128 but instead a Vec of u128s
- * each u128 defines a row in the area
+ * each input u128 defines a row in the area
+ * new fn unions the used regions of the u128s together
  * m x n size (m < 128)
  */
 #[derive(Debug, Default, Clone)]
@@ -164,12 +164,12 @@ impl BitShape {
     }
 
     // assumed lhs.size == rhs.size
-    pub fn intersect(&mut self, rhs: &BitShape) -> &mut Self {
-        for (lhs, rhs) in self.bits.iter_mut().zip(rhs.bits.iter()) {
-            *lhs &= rhs;
-        }
-        self
-    }
+    // pub fn intersect(&mut self, rhs: &BitShape) -> &mut Self {
+    //     for (lhs, rhs) in self.bits.iter_mut().zip(rhs.bits.iter()) {
+    //         *lhs &= rhs;
+    //     }
+    //     self
+    // }
 
     pub fn is_filled_at(&self, x: u16, y: u16) -> bool {
         if x >= self.size.x || y >= self.size.y {
@@ -184,25 +184,20 @@ impl BitShape {
 #[derive(Debug, Clone)]
 pub struct Shape<'a> {
     pub layout: DrawLayout,
-    pub shape: &'a BitShape,
+    pub bitshape: &'a BitShape,
     pub symbol: &'a str,
     pub style: Style
 }
 
 impl<'a> Shape<'a> {
-    pub fn new(shape: &'a BitShape, symbol: &'a str, style: Style, mut layout: DrawLayout) -> Self {
-        layout.set_size(UDim2::from_size2d(shape.size));
+    pub fn new(bitshape: &'a BitShape, symbol: &'a str, style: Style, mut layout: DrawLayout) -> Self {
+        layout.set_size(UDim2::from_size2d(bitshape.size));
         Shape { 
-            shape, 
+            bitshape, 
             symbol,
             style,
             layout
         }
-    }
-
-    pub fn replace_shape(&mut self, shape: &'a BitShape) {
-        self.layout.set_size(UDim2::from_size2d(shape.size));
-        self.shape = shape;
     }
 }
 
@@ -213,13 +208,13 @@ impl<'a> Layoutable for Shape<'_> {
 
 // TODO: comment this...
 impl<'a> Drawable for Shape<'_> {
-    fn draw(&self, area: ScreenArea) {
-        for point in area.absolute_draw_space {
-            let bit_point = area.absolute_layout_space.relative_position_of(point);
-            let bit_index = (bit_point.y as u16)*self.shape.size.x + bit_point.x as u16;
-            if self.shape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
-                let i = area.buf.index_of(point.x as u16, point.y as u16);
-                area.buf.content[i]
+    fn draw(&self, ctx: &mut DrawContext) {
+        for point in ctx.absolute_draw_space {
+            let bit_point = ctx.absolute_layout_space.relative_position_of(point);
+            let bit_index = (bit_point.y as u16)*self.bitshape.size.x + bit_point.x as u16;
+            if self.bitshape.bits[bit_index as usize / 128] >> (bit_index % 128) & 1 == 1 {
+                let i = ctx.buf.index_of(point.x as u16, point.y as u16);
+                ctx.buf.content[i]
                     .set_symbol(self.symbol)
                     .set_style(self.style);
             }
@@ -228,7 +223,7 @@ impl<'a> Drawable for Shape<'_> {
 }
 
 /* DrawableString takes a string and holds references to each line segment */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DrawableString<'a> {
     pub lines: Vec<&'a str>,
     pub size: Size2D
@@ -294,7 +289,7 @@ impl<'a> Iterator for DrawableStringIterator<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StringShape<'a> {
     pub shape: &'a DrawableString<'a>,
     pub style: Style,
@@ -318,14 +313,14 @@ impl<'a> Layoutable for StringShape<'_> {
 }
 
 impl<'a> Drawable for StringShape<'_> {
-    fn draw(&self, area: ScreenArea) {
-        let absolute_draw_space = area.absolute_draw_space;
-        let absolute_layout_space = area.absolute_layout_space;
+    fn draw(&self, ctx: &mut DrawContext) {
+        let absolute_draw_space = ctx.absolute_draw_space;
+        let absolute_layout_space = ctx.absolute_layout_space;
         let offset_y = absolute_draw_space.position.y - absolute_layout_space.position.y;
         let offset_x = absolute_draw_space.position.x - absolute_layout_space.position.x;
         for y in 0..self.shape.lines.len().min(absolute_draw_space.size.y as usize) as i16 {
             let point = absolute_draw_space.absolute_position_of(Point2D::new(0, y as i16));
-            area.buf.set_stringn(
+            ctx.buf.set_stringn(
                 point.x as u16, 
                 point.y as u16, 
                 &self.shape.lines[(y + offset_y) as usize][offset_x as usize..], 
@@ -336,15 +331,20 @@ impl<'a> Drawable for StringShape<'_> {
     }
 }
 
+/* struct is abstract (not meant to be instanced) for organization */
 pub struct Ellipse;
 
 impl Ellipse {
-    pub fn bits(canvas_size: Size2D, semiaxis_size_x: f32, semiaxis_size_y: f32) -> BitShape {
-        let h = 0.5*canvas_size.x as f32;
-        let k = 0.5*canvas_size.y as f32;
-        let a = semiaxis_size_x;
-        let b = semiaxis_size_y;
-        
-        BitShape::paint(canvas_size, |x, y| ((x as f32 + 0.5 - h)/a).powi(2) + ((y as f32 + 0.5 - k)/b).powi(2) <= 1.0)
+    pub fn painter(center: Float2D, semiaxis_size_x: f32, semiaxis_size_y: f32) -> impl Fn(Point2D) -> bool 
+    {
+        move |point| 
+            ((point.x as f32 + 0.5 - center.x)/semiaxis_size_x).powi(2) + 
+            ((point.y as f32 + 0.5 - center.y)/semiaxis_size_y).powi(2) <= 1.0
+    }
+
+    pub fn scaled_circle_painter(canvas_size: Size2D, center: Float2D, alpha: f32) -> impl Fn(Point2D) -> bool {
+        let a = 0.5*alpha*canvas_size.x.max(2*canvas_size.y) as f32; // 2*y because font height is twice font width
+        let b = 0.5*a; // font height in terminal is twice width so to account for this the ellipsis y axis must be half the x axis
+        Ellipse::painter(center, a, b)
     }
 }

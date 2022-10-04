@@ -22,7 +22,7 @@ const WHEAT_RESOURCE_SYMBOL: &'static str = "🌾";
 const BRICK_RESOURCE_SYMBOL: &'static str = "🧱";
 const LUMBER_RESOURCE_SYMBOL: &'static str = "🌲";
 const DESERT_RESOURCE_SYMBOL: &'static str = "🌵";
-const ANY_RESOURCE_SYMBOL: &'static str = "?";
+const ANY_RESOURCE_SYMBOL: &'static str = "??";
 
 const PORT_SPECIFIC_RESOURCE_TRADING_RATIO: (u32, u32) = (2, 1);
 const PORT_ANY_RESOURCE_TRADING_RATIO: (u32, u32) = (3, 1);
@@ -148,7 +148,7 @@ impl Distribution<TileResource> for Standard {
     }
 }
 
-/* Kinds of buildings that can exist on a road point */
+/* Kinds of buildings that can exist on a plot point */
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Building {
     Settlement,
