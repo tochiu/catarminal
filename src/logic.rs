@@ -54,7 +54,7 @@ struct Game {
     map: Map
 }
 
-fn find_longest_road(edge_graph: Vec<Vec<usize>>) {
+fn find_longest_road(edge_graph: Vec<Vec<usize>>) {// I think this is for the longest road card
     
 }
 
