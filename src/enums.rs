@@ -16,7 +16,7 @@ const LUMBER_RESOURCE_COLOR: Color = Color::Rgb(9, 74, 29);
 const ORE_RESOURCE_COLOR: Color = Color::Rgb(164, 170, 166);
 const DESERT_RESOURCE_COLOR: Color = Color::Rgb(217, 210, 149);
 
-const ORE_RESOURCE_SYMBOL: &'static str = "🪨";
+const ORE_RESOURCE_SYMBOL: &'static str = "⛰️";
 const WOOL_RESOURCE_SYMBOL: &'static str = "🐑";
 const WHEAT_RESOURCE_SYMBOL: &'static str = "🌾";
 const BRICK_RESOURCE_SYMBOL: &'static str = "🧱";

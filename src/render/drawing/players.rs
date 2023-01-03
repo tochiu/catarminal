@@ -92,7 +92,7 @@ impl PlayerFrame {
                 DrawLayout::default()
             ),
             army_counter: SymbolCounter::new(
-                String::from("🪖"),
+                String::from("⚔️"),
                 SymbolCounterKind::Default, 
                 SymbolCounterStyle {
                     symbol: *CARD_SYMBOL_STYLE, 
