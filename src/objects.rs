@@ -2,8 +2,8 @@ use rand::Rng;  // Random Number Generator
 use petgraph::Graph; // Graph Structure
 
 #[derive(Copy, Clone)]
-pub enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
-pub enum DevelopmentCard { Knight, Victory, Road, YearOfPlenty, Monopoly }
+//pub enum Resource { Brick, Ore, Wheat, Sheep, Lumber }
+//pub enum DevelopmentCard { Knight, Victory, Road, YearOfPlenty, Monopoly }
 
 type LandRef = Box<Land>;
 type LandVertexRef = Box<LandVertex>;
