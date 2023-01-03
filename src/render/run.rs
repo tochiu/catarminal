@@ -32,30 +32,35 @@ use rand::{prelude::Distribution, distributions::Uniform, Rng};
 const DEFAULT_REDRAW_DELAY_MS: u64 = 4;
 
 /* this the render loop with some test code for now */
-pub fn run(enable_logger: bool) -> Result<(), io::Error> {
+pub fn run(enable_logger: bool, mut map: Option<Map>) -> Result<(), io::Error> {
     let mut rng = rand::thread_rng();
 
-    let mut tiles: Vec<Tile> = Uniform::from(2..12) // from a uniform distribution from [2, 12)
-        .sample_iter(&mut rng) // create an iterator that samples from it
-        .take(*map::MAP_TILE_CAPACITY - 1) // sample as many times equal to the map capacity for tiles (minus 1 for desert tile)
-        .map(|roll| Tile::new(
-            if roll == 7 { 12 } else { roll }, // 7 becomes 12 because 7 is not on a tile its a robber round
-            enums::TileResource::Of(rand::random::<enums::Resource>())
-        )) 
-        .collect();
+    let map = map.unwrap_or_else(|| {
+        let mut tiles: Vec<Tile> = Uniform::from(2..12) // from a uniform distribution from [2, 12)
+            .sample_iter(&mut rng) // create an iterator that samples from it
+            .take(*map::MAP_TILE_CAPACITY - 1) // sample as many times equal to the map capacity for tiles (minus 1 for desert tile)
+            .map(|roll| Tile::new(
+                if roll == 7 { 12 } else { roll }, // 7 becomes 12 because 7 is not on a tile its a robber round
+                enums::TileResource::Of(rand::random::<enums::Resource>())
+            )) 
+            .collect();
 
-    // insert desert tile at a random location in the tiles vector
-    let desert_tile_index = rng.gen_range(0..=tiles.len());
-    tiles.insert(desert_tile_index, Tile::new(7, enums::TileResource::OfDesert));
+        // insert desert tile at a random location in the tiles vector
+        let desert_tile_index = rng.gen_range(0..=tiles.len());
+        tiles.insert(desert_tile_index, Tile::new(7, enums::TileResource::OfDesert));
 
-    let ports: Vec<Port> = enums::PortResource::OfAnyKind // sample_iter takes a self type so I need to do PortResource::OfAnyKind instead of just PortResource
-        .sample_iter(&mut rng) // create an iterator that takes samples of PortResource
-        .take(*map::MAP_PORT_CAPACITY) // sample as many times equal to the map capacity for ports
-        .enumerate()
-        .map(|(i, resource)| Port::new(i, resource)) // we want ports containing these resources
-        .collect();
+        let ports: Vec<Port> = enums::PortResource::OfAnyKind // sample_iter takes a self type so I need to do PortResource::OfAnyKind instead of just PortResource
+            .sample_iter(&mut rng) // create an iterator that takes samples of PortResource
+            .take(*map::MAP_PORT_CAPACITY) // sample as many times equal to the map capacity for ports
+            .enumerate()
+            .map(|(i, resource)| Port::new(i, resource)) // we want ports containing these resources
+            .collect();
+        
+        Map::new(tiles, ports)
+    });
 
-    let game_screen_resource = Arc::new(Mutex::new(Screen::new(Game::new(Map::new(tiles, ports)))));
+    
+    let game_screen_resource = Arc::new(Mutex::new(Screen::new(Game::new(map))));
 
     // { // test robber animation
     //     let game_screen_mutex = Arc::clone(&game_screen_resource);
