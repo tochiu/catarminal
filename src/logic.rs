@@ -128,8 +128,8 @@ struct Player {
     roads_remaining: u8,
     settlements_reamining: u8, // the smaller ones
     cities_remaining: u8, // the bigger ones
-    pub_score: u8, // score seen by other players
-    priv_score: u8, // actual score only seen by player
+    public_points: u8, // score seen by other players
+    private_points: u8, // actual score only seen by player
     devel_owned: u8,
     devel_cards: Vec<DevelopmentCard>,
     longest_road: u8,
