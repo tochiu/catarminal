@@ -2,6 +2,7 @@
 // this module should contain everything related to starting/running the game loop
 
 use crate::enums;
+use crate::enums::*;
 use crate::render::drawing::map::MAP_GRAPH;
 
 use rand::Rng;
@@ -134,4 +135,19 @@ struct Game {
 }
 
 fn find_longest_road(edge_graph: Vec<Vec<usize>>) { // I think this is for the longest road card
+    // Has to be 5 connected roads 
+
+}
+
+fn move_robber(){ 
+    // This function moves the robber into another tile, returns nothing. 
+    // The robber stops production of the tile it's on
+    // The player who called this function gets to choose to steal a resource from any other players around the tile on which the robber is now on 
+
+}
+
+fn find_largest_army (){ 
+    // Gets checked when an army card is played 
+    // We check each player's army number and give the largest army card (maybe a boolean) to the player with the largest number
+    // Also add 2 Victory points 
 }
