@@ -60,10 +60,10 @@ impl Map {
             TileResource::Of(Resource::Ore),
             //TileResource::OfDesert,
         ];
-        let mut tiles: Vec<Tile> = Vec::new();
         //
         // Generating all the tiles
         //
+        let mut tiles: Vec<Tile> = Vec::new();
         for i in 0..19 {
             // randomizing numbers
             let rng_num = rand::thread_rng().gen_range(0..remaining_num.len());
@@ -98,10 +98,10 @@ impl Map {
             PortResource::Of(Resource::Wool),
             PortResource::Of(Resource::Lumber),
         ];
-        let mut ports: Vec<Port> = Vec::new();
         //
         // generating all the ports
         //
+        let mut ports: Vec<Port> = Vec::new();
         for id in 0..9 {
             // picking a random port resource
             let rng_portrsc = rand::thread_rng().gen_range(0..remaining_portrsc.len());
@@ -117,16 +117,24 @@ impl Map {
     }
 }
 
+struct DevelopmentCard {
+    name: String,
+}
+
 struct Player {
     id: PlayerId,
     name: String,
     color: Color,
-}
-
-struct PlayerState {
     roads_remaining: u8,
-    settlements_reamining: u8,
-    cities_remaining: u8,
+    settlements_reamining: u8, // the smaller ones
+    cities_remaining: u8, // the bigger ones
+    pub_score: u8, // score seen by other players
+    priv_score: u8, // actual score only seen by player
+    devel_owned: u8,
+    devel_cards: Vec<DevelopmentCard>,
+    longest_road: u8,
+    largest_army: u8
+
 }
 
 struct Game {
