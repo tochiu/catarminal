@@ -30,7 +30,7 @@ const PORT_ANY_RESOURCE_TRADING_RATIO: (u32, u32) = (3, 1);
 /* enums */
 
 /* the main resources in the game */
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Resource {
     Ore,
     Wool,
@@ -114,7 +114,7 @@ impl Distribution<PortResource> for PortResource {
 }
 
 /* Tiles can either contain a resource or be a desert */
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TileResource {
     OfDesert,
     Of(Resource)

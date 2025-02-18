@@ -1,3 +1,5 @@
+use std::{path::Path, time::{Instant, SystemTime, UNIX_EPOCH}};
+
 use super::{players::{self, *}, map::{self, Map}, drag::Dragger};
 
 use crate::render::prelude::*;
@@ -24,6 +26,18 @@ pub struct Game {
     regions: GameRegions,    
 
     pub map_dragger: Dragger<Map>,
+}
+
+lazy_static! {
+    static ref TITLE_BKG_FRAMES: Vec<Sprite> = {
+        let mut frames = Vec::new();
+        for i in 0..30 {
+            let mut frame = Sprite::try_from(Path::new(&format!("./res/title_anim/frame_{:0>2}_delay-0.22s.png", i))).unwrap();
+        frame.layout_mut().set_position(UDim2::new(1.0, 0, 1.0, 10)).set_anchor(Float2D::new(1.0, 1.0));
+            frames.push(frame);
+        }
+        frames
+    };
 }
 
 impl Game {
@@ -65,60 +79,65 @@ impl Layoutable for Game {
 impl StatefulDrawable for Game {
     type State = ();
     fn stateful_draw(&self, ctx: &mut DrawContext, state: &Self::State) {
-        ctx.draw_widget(
-            Block::default()
-                .title(" Map ")
-                .border_style(Style::default().fg(Color::White).bg(Color::Black))
-                .borders(Borders::ALL), 
-            self.regions.map
-        );
-        ctx.draw_widget(
-            Block::default()
-                .title(" Events ")
-                .border_style(Style::default().fg(Color::White).bg(Color::Black))
-                .borders(Borders::ALL), 
-            self.regions.events
-        );
-        ctx.draw_widget(
-            Block::default()
-                .title(" Chat ")
-                .border_style(Style::default().fg(Color::White).bg(Color::Black))
-                .borders(Borders::ALL), 
-            self.regions.chat
-        );
-        ctx.draw_widget(
-            Block::default()
-                .title(" Players ")
-                .border_style(Style::default().fg(Color::White).bg(Color::Black))
-                .borders(Borders::ALL), 
-            self.regions.players
-        );
+        let index = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as usize % (6600/2) * TITLE_BKG_FRAMES.len() / (6600/2);
+
+        log::info!("index: {}", index);
+
+        ctx.draw_child(&TITLE_BKG_FRAMES[index]);
+        // ctx.draw_widget(
+        //     Block::default()
+        //         .title(" Map ")
+        //         .border_style(Style::default().fg(Color::White).bg(Color::Black))
+        //         .borders(Borders::ALL), 
+        //     self.regions.map
+        // );
+        // ctx.draw_widget(
+        //     Block::default()
+        //         .title(" Events ")
+        //         .border_style(Style::default().fg(Color::White).bg(Color::Black))
+        //         .borders(Borders::ALL), 
+        //     self.regions.events
+        // );
+        // ctx.draw_widget(
+        //     Block::default()
+        //         .title(" Chat ")
+        //         .border_style(Style::default().fg(Color::White).bg(Color::Black))
+        //         .borders(Borders::ALL), 
+        //     self.regions.chat
+        // );
+        // ctx.draw_widget(
+        //     Block::default()
+        //         .title(" Players ")
+        //         .border_style(Style::default().fg(Color::White).bg(Color::Black))
+        //         .borders(Borders::ALL), 
+        //     self.regions.players
+        // );
         
-        ctx.draw_stateful_child(&self.map_dragger, state);
-        ctx.draw_stateful_child(&self.players, &[
-            // TEST DATA
-            PlayerFrameState {
-                victory_point_count: 9,
-                largest_army_count: 2,
-                longest_road_count: 3,
-                resource_card_count: 7,
-                development_card_count: 0
-            },
-            PlayerFrameState {
-                victory_point_count: 10,
-                largest_army_count: 5,
-                longest_road_count: 8,
-                resource_card_count: 22,
-                development_card_count: 6
-            },
-            PlayerFrameState {
-                victory_point_count: 4,
-                largest_army_count: 0,
-                longest_road_count: 0,
-                resource_card_count: 0,
-                development_card_count: 0
-            }
-        ]);
+        // ctx.draw_stateful_child(&self.map_dragger, state);
+        // ctx.draw_stateful_child(&self.players, &[
+        //     // TEST DATA
+        //     PlayerFrameState {
+        //         victory_point_count: 9,
+        //         largest_army_count: 2,
+        //         longest_road_count: 3,
+        //         resource_card_count: 7,
+        //         development_card_count: 0
+        //     },
+        //     PlayerFrameState {
+        //         victory_point_count: 10,
+        //         largest_army_count: 5,
+        //         longest_road_count: 8,
+        //         resource_card_count: 22,
+        //         development_card_count: 6
+        //     },
+        //     PlayerFrameState {
+        //         victory_point_count: 4,
+        //         largest_army_count: 0,
+        //         longest_road_count: 0,
+        //         resource_card_count: 0,
+        //         development_card_count: 0
+        //     }
+        // ]);
     }
 }
 

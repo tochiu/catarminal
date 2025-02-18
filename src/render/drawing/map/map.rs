@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::{Tile, TileDigitsAnimation, Port, parse, placement::*, TILE_SIZE};
 
 use crate::render::{prelude::*, iter::CustomIterator};
@@ -26,7 +28,8 @@ pub struct Map {
     buildings: Vec<Building>,
     robber: DrawLeaf<Shape128>,
     layout: DrawLayout,
-    mount: Mount
+    mount: Mount,
+    logo: Sprite
 }
 
 impl Map {
@@ -108,8 +111,11 @@ impl Map {
             robber,
             bkg: &parse::MAP_BKG_SHAPE,
             layout: DrawLayout::default(), 
-            mount: Mount::default() 
+            mount: Mount::default(),
+            logo: Sprite::try_from(Path::new("./res/catarminal.png")).unwrap()
         };
+
+        map.logo.layout_mut().set_position(UDim2::from_offset(20, 20));
 
         map.layout.set_size(UDim2::from_size2d(parse::MAP_BKG_DRAW_STRING.size));
         for (i, tile) in map.tiles.iter_mut().enumerate() {
@@ -225,6 +231,8 @@ impl Drawable for Map {
                 ctx.draw_child(&animator.digit);
             }
         }
+
+        ctx.draw_child(&self.logo);
     }
 }
 

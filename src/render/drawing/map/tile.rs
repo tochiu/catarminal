@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::{MAP_SAND_COLOR, parse};
 
 use crate::render::prelude::*;
@@ -55,6 +57,12 @@ lazy_static! {
         Style::default().bg(MAP_SAND_COLOR),
         DrawLayout::default().center().clone()
     );
+
+    static ref WHEAT_TITLE_SPRITE: Sprite = {
+        let mut wheat = Sprite::try_from(Path::new("./res/wheat.png")).unwrap();
+        wheat.layout_mut().set_position(UDim2::from_scale(0.5, 0.5)).set_anchor(Float2D::new(0.5, 0.5));
+        wheat
+    };
 }
 
 #[derive(Debug)]
@@ -137,6 +145,9 @@ impl Tile {
 
     fn draw_common(&self, area: &mut DrawContext) {
         area.draw_child(&self.bkg);
+        if self.resource == enums::TileResource::Of(enums::Resource::Wheat) {
+            area.draw_child(&*WHEAT_TITLE_SPRITE);
+        }
         area.draw_unicode_line(
             self.resource.get_symbol(), 
             TILE_SYMBOL_OFFSET, 

@@ -3,6 +3,7 @@ pub mod draw;
 pub mod drawing;
 pub mod screen;
 pub mod shape;
+pub mod sprite;
 
 mod run;
 pub use run::run;
@@ -20,4 +21,5 @@ pub mod prelude {
     pub use super::anim::*;
     pub use super::shape::*;
     pub use super::input::*;
+    pub use super::sprite::*;
 }
